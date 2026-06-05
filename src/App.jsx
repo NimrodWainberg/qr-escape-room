@@ -17,6 +17,10 @@ import { challenges, roomConfig } from "./data/challenges.js";
 const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
 
+function normalizeCode(value) {
+  return value.trim().replace(/\s+/g, "");
+}
+
 function readSolved() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
@@ -271,7 +275,10 @@ function ResultMessage({ result, reward }) {
     return (
       <div className="result success-result" role="status">
         <Check aria-hidden="true" />
-        <span>נכון! החלק שקיבלתם הוא:</span>
+        <span className="result-copy">
+          <strong className="result-title">כל הכבוד!</strong>
+          <small>פתרתם את השלב וקיבלתם חלק מהקוד הסופי:</small>
+        </span>
         <strong>{reward}</strong>
       </div>
     );
@@ -281,7 +288,10 @@ function ResultMessage({ result, reward }) {
     return (
       <div className="result error-result" role="alert">
         <X aria-hidden="true" />
-        <span>לא בדיוק. נסו שוב.</span>
+        <span className="result-copy">
+          <strong className="result-title">כמעט!</strong>
+          <small>הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב.</small>
+        </span>
       </div>
     );
   }
@@ -297,15 +307,12 @@ function FinalPage({ solved, onNavigate }) {
   const [value, setValue] = useState("");
   const [result, setResult] = useState("idle");
 
-  const collectedCode = challenges
-    .map((challenge) => (solved[challenge.id] ? challenge.reward : "?"))
-    .join("");
-
   function submitFinal(event) {
     event.preventDefault();
-    const normalizedValue = value.trim().replace(/\s+/g, "");
+    const normalizedValue = normalizeCode(value);
+    const normalizedFinalCode = normalizeCode(roomConfig.finalCode);
 
-    if (normalizedValue === roomConfig.finalCode) {
+    if (normalizedValue === normalizedFinalCode) {
       setResult("success");
       return;
     }
@@ -345,7 +352,7 @@ function FinalPage({ solved, onNavigate }) {
           autoComplete="off"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder={collectedCode}
+          placeholder="הקלידו כאן"
         />
         <button className="primary-button" type="submit">
           <Trophy aria-hidden="true" />
@@ -356,14 +363,20 @@ function FinalPage({ solved, onNavigate }) {
       {result === "success" && (
         <div className="result success-result" role="status">
           <Sparkles aria-hidden="true" />
-          <span>הצלחתם! הבריחה הושלמה.</span>
+          <span className="result-copy">
+            <strong className="result-title">כל הכבוד!</strong>
+            <small>הצלחתם לפתוח את הקוד הסופי. הבריחה הושלמה.</small>
+          </span>
         </div>
       )}
 
       {result === "error" && (
         <div className="result error-result" role="alert">
           <X aria-hidden="true" />
-          <span>עדיין לא. בדקו את החלקים ונסו שוב.</span>
+          <span className="result-copy">
+            <strong className="result-title">עדיין לא.</strong>
+            <small>אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.</small>
+          </span>
         </div>
       )}
 

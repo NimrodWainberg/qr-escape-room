@@ -1,7 +1,7 @@
 export const roomConfig = {
   title: "מסע הקודים",
   subtitle: "סרקו QR, פתרו קוד קצר, ואספו חלק מהסיסמה הסופית.",
-  finalCode: "אורחים",
+  finalCode: "חופשה נעימה",
   finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
 };
 
@@ -12,7 +12,7 @@ export const challenges = [
     title: "קוד 1",
     question: "",
     answer: "1",
-    reward: "א",
+    reward: "חו",
   },
   {
     id: 2,
@@ -20,7 +20,7 @@ export const challenges = [
     title: "קוד 2",
     question: "",
     answer: "2",
-    reward: "ו",
+    reward: "פ",
   },
   {
     id: 3,
@@ -28,7 +28,7 @@ export const challenges = [
     title: "קוד 3",
     question: "",
     answer: "3",
-    reward: "ר",
+    reward: "שה",
   },
   {
     id: 4,
@@ -36,7 +36,7 @@ export const challenges = [
     title: "קוד 4",
     question: "",
     answer: "4",
-    reward: "ח",
+    reward: "נע",
   },
   {
     id: 5,
@@ -44,6 +44,6 @@ export const challenges = [
     title: "קוד 5",
     question: "",
     answer: "5",
-    reward: "ים",
+    reward: "ימה",
   },
 ];
