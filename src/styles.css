@@ -457,6 +457,155 @@ h1 {
   animation: pop 420ms ease both;
 }
 
+.vacation-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #8fdcf1;
+  color: #123244;
+  text-align: center;
+  animation: vacation-enter 420ms ease both;
+}
+
+.vacation-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vacation-content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  width: min(92vw, 760px);
+  margin-block-start: min(10vh, 5rem);
+  padding: clamp(1.1rem, 4vw, 2.4rem);
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 22px 70px rgba(18, 50, 68, 0.2);
+  backdrop-filter: blur(14px);
+}
+
+.vacation-content .eyebrow {
+  color: #0d7774;
+}
+
+.vacation-content h1 {
+  font-size: clamp(3rem, 12vw, 7rem);
+  color: #123244;
+  text-shadow: 0 8px 28px rgba(255, 255, 255, 0.72);
+}
+
+.vacation-content p {
+  margin: 0;
+  color: #385263;
+  font-size: clamp(1.05rem, 2.5vw, 1.45rem);
+  font-weight: 800;
+}
+
+.vacation-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 3.3rem;
+  margin-block-start: 0.3rem;
+  padding-block: 0.65rem;
+  padding-inline: 1.2rem;
+  border: 1px solid rgba(18, 50, 68, 0.18);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #16a6a2, #4f8df7);
+  color: white;
+  font-weight: 900;
+  box-shadow: 0 14px 32px rgba(22, 166, 162, 0.25);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.vacation-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(79, 141, 247, 0.32);
+}
+
+.vacation-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.vacation-sparkles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.vacation-sparkles span {
+  position: absolute;
+  inset-block-start: var(--y);
+  inset-inline-start: var(--x);
+  width: 0.65rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 0.32rem rgba(255, 209, 102, 0.28),
+    0 0 1.6rem rgba(255, 255, 255, 0.9);
+  animation: sparkle-pop 2.2s ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.vacation-sun {
+  animation: sun-pulse 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.vacation-cloud {
+  animation: cloud-drift 15s ease-in-out infinite;
+}
+
+.cloud-two {
+  animation-delay: -6s;
+}
+
+.vacation-plane {
+  animation: plane-float 7s ease-in-out infinite;
+}
+
+.wave {
+  animation: wave-slide 4.8s ease-in-out infinite;
+}
+
+.wave-two {
+  animation-delay: -1.8s;
+}
+
+.palm {
+  animation: palm-sway 4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+
+.palm-right {
+  animation-delay: -1.4s;
+}
+
+.beach-ball {
+  animation: beach-ball-bounce 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -600,6 +749,97 @@ h1 {
   }
 }
 
+@keyframes vacation-enter {
+  0% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sparkle-pop {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0) scale(0.7);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-0.8rem) scale(1.15);
+  }
+}
+
+@keyframes sun-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes cloud-drift {
+  0%,
+  100% {
+    transform: translateX(-1.2rem);
+  }
+
+  50% {
+    transform: translateX(1.4rem);
+  }
+}
+
+@keyframes plane-float {
+  0%,
+  100% {
+    transform: translate(-0.4rem, 0);
+  }
+
+  50% {
+    transform: translate(1.2rem, -0.8rem);
+  }
+}
+
+@keyframes wave-slide {
+  0%,
+  100% {
+    transform: translateX(-1rem);
+  }
+
+  50% {
+    transform: translateX(1rem);
+  }
+}
+
+@keyframes palm-sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes beach-ball-bounce {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-1.1rem) rotate(8deg);
+  }
+}
+
 @media (max-width: 820px) {
   .challenge-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -643,6 +883,16 @@ h1 {
 
   .wide-button {
     width: 100%;
+  }
+
+  .vacation-content {
+    width: min(92vw, 25rem);
+    margin-block-start: -5vh;
+    border-radius: 1rem;
+  }
+
+  .vacation-content h1 {
+    font-size: clamp(2.6rem, 16vw, 4.6rem);
   }
 }
 

@@ -320,10 +320,12 @@ function FinalPage({ solved, onNavigate }) {
     setResult("error");
   }
 
+  if (result === "success") {
+    return <VacationCelebration onNavigate={onNavigate} />;
+  }
+
   return (
     <section className={`play-panel final-panel ${result === "error" ? "shake" : ""}`}>
-      {result === "success" && <Confetti />}
-
       <div className="panel-header">
         <span className="round-badge">
           <Trophy aria-hidden="true" />
@@ -360,16 +362,6 @@ function FinalPage({ solved, onNavigate }) {
         </button>
       </form>
 
-      {result === "success" && (
-        <div className="result success-result" role="status">
-          <Sparkles aria-hidden="true" />
-          <span className="result-copy">
-            <strong className="result-title">כל הכבוד!</strong>
-            <small>הצלחתם לפתוח את הקוד הסופי. הבריחה הושלמה.</small>
-          </span>
-        </div>
-      )}
-
       {result === "error" && (
         <div className="result error-result" role="alert">
           <X aria-hidden="true" />
@@ -384,6 +376,118 @@ function FinalPage({ solved, onNavigate }) {
         <Home aria-hidden="true" />
         חזרה לשלבים
       </button>
+    </section>
+  );
+}
+
+function VacationCelebration({ onNavigate }) {
+  return (
+    <section className="vacation-screen" aria-live="polite">
+      <div className="vacation-sparkles" aria-hidden="true">
+        {Array.from({ length: 22 }).map((_, index) => (
+          <span
+            key={index}
+            style={{
+              "--x": `${(index * 19) % 100}%`,
+              "--y": `${(index * 31) % 84}%`,
+              "--delay": `${(index % 8) * 0.18}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <svg
+        className="vacation-svg"
+        viewBox="0 0 1200 760"
+        role="img"
+        aria-label="איור מונפש של חופשה עם שמש, ים, דקלים וכדור חוף"
+      >
+        <defs>
+          <linearGradient id="vacationSky" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#7dd3fc" />
+            <stop offset="56%" stopColor="#bff4ff" />
+            <stop offset="100%" stopColor="#fff1b8" />
+          </linearGradient>
+          <linearGradient id="vacationSea" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#16a6a2" />
+            <stop offset="52%" stopColor="#19c6d1" />
+            <stop offset="100%" stopColor="#4f8df7" />
+          </linearGradient>
+          <linearGradient id="vacationSand" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#ffe08a" />
+            <stop offset="100%" stopColor="#ffbe62" />
+          </linearGradient>
+          <clipPath id="ballClip">
+            <circle cx="950" cy="592" r="58" />
+          </clipPath>
+        </defs>
+
+        <rect width="1200" height="760" fill="url(#vacationSky)" />
+
+        <g className="vacation-sun">
+          <circle cx="174" cy="132" r="68" fill="#ffd166" />
+          <circle cx="174" cy="132" r="92" fill="none" stroke="#ffd166" strokeOpacity="0.34" strokeWidth="18" />
+        </g>
+
+        <g className="vacation-cloud cloud-one">
+          <ellipse cx="740" cy="112" rx="68" ry="28" fill="#ffffff" opacity="0.88" />
+          <ellipse cx="694" cy="113" rx="42" ry="24" fill="#ffffff" opacity="0.88" />
+          <ellipse cx="782" cy="103" rx="42" ry="30" fill="#ffffff" opacity="0.88" />
+        </g>
+        <g className="vacation-cloud cloud-two">
+          <ellipse cx="335" cy="214" rx="76" ry="30" fill="#ffffff" opacity="0.78" />
+          <ellipse cx="282" cy="216" rx="42" ry="22" fill="#ffffff" opacity="0.78" />
+          <ellipse cx="382" cy="203" rx="45" ry="31" fill="#ffffff" opacity="0.78" />
+        </g>
+
+        <g className="vacation-plane">
+          <path d="M1015 126 L1120 88 L1070 150 L1062 218 L1028 160 L940 152 Z" fill="#ffffff" />
+          <path d="M1028 160 L1084 129" fill="none" stroke="#2c7be5" strokeWidth="8" strokeLinecap="round" />
+          <path d="M935 191 C820 184 754 151 670 102" fill="none" stroke="#ffffff" strokeOpacity="0.72" strokeWidth="10" strokeLinecap="round" strokeDasharray="24 18" />
+        </g>
+
+        <path d="M0 390 C150 350 275 430 425 390 C590 345 715 430 885 385 C1015 350 1100 367 1200 344 L1200 760 L0 760 Z" fill="url(#vacationSea)" />
+        <path className="wave wave-one" d="M-40 430 C90 388 210 463 350 425 C510 382 650 462 805 421 C960 379 1084 432 1240 392" fill="none" stroke="#e8ffff" strokeWidth="16" strokeLinecap="round" opacity="0.78" />
+        <path className="wave wave-two" d="M-60 500 C95 455 246 534 405 492 C548 454 705 530 865 489 C1012 451 1108 494 1260 462" fill="none" stroke="#ffffff" strokeWidth="12" strokeLinecap="round" opacity="0.5" />
+
+        <path d="M0 596 C172 564 287 630 444 602 C613 571 716 626 875 590 C1015 558 1103 578 1200 552 L1200 760 L0 760 Z" fill="url(#vacationSand)" />
+        <path d="M0 616 C134 592 281 640 442 618 C617 594 729 642 898 611 C1015 590 1110 603 1200 586" fill="none" stroke="#fff4c2" strokeWidth="12" strokeLinecap="round" opacity="0.7" />
+
+        <g className="palm palm-left">
+          <path d="M176 662 C176 555 205 475 235 398" fill="none" stroke="#8b5e3c" strokeWidth="24" strokeLinecap="round" />
+          <path d="M235 401 C181 379 126 385 81 422 C142 426 191 422 235 401Z" fill="#249962" />
+          <path d="M236 398 C202 340 147 308 76 309 C132 353 179 382 236 398Z" fill="#2fb66f" />
+          <path d="M238 397 C265 334 317 294 385 281 C344 338 295 378 238 397Z" fill="#24a669" />
+          <path d="M239 402 C294 386 347 395 397 433 C334 433 285 424 239 402Z" fill="#37c77b" />
+        </g>
+
+        <g className="palm palm-right">
+          <path d="M1084 669 C1080 570 1058 488 1029 411" fill="none" stroke="#8b5e3c" strokeWidth="22" strokeLinecap="round" />
+          <path d="M1028 413 C978 392 921 400 878 438 C938 439 984 430 1028 413Z" fill="#22955f" />
+          <path d="M1027 409 C984 356 932 334 864 344 C925 380 973 401 1027 409Z" fill="#31b871" />
+          <path d="M1027 409 C1054 345 1106 307 1175 300 C1134 354 1085 393 1027 409Z" fill="#22a466" />
+          <path d="M1027 414 C1080 401 1136 414 1179 454 C1121 452 1074 438 1027 414Z" fill="#35c47a" />
+        </g>
+
+        <g className="beach-ball" clipPath="url(#ballClip)">
+          <circle cx="950" cy="592" r="58" fill="#ffffff" />
+          <path d="M950 534 L950 650 L1008 592 Z" fill="#ff6b5f" />
+          <path d="M950 534 L892 592 L950 592 Z" fill="#ffd166" />
+          <path d="M950 592 L892 592 L950 650 Z" fill="#4f8df7" />
+          <path d="M950 534 C926 558 924 621 950 650" fill="none" stroke="#202124" strokeOpacity="0.18" strokeWidth="5" />
+          <circle cx="950" cy="592" r="58" fill="none" stroke="#202124" strokeOpacity="0.14" strokeWidth="5" />
+        </g>
+      </svg>
+
+      <div className="vacation-content">
+        <p className="eyebrow">הבריחה הושלמה</p>
+        <h1>חופשה נעימה!</h1>
+        <p>כל הכבוד, פתחתם את הקוד הסופי.</p>
+        <button className="vacation-button" type="button" onClick={() => onNavigate("/")}>
+          <Home aria-hidden="true" />
+          חזרה לשלבים
+        </button>
+      </div>
     </section>
   );
 }
