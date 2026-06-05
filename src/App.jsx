@@ -1,7 +1,6 @@
 import {
   Check,
   Home,
-  LockKeyhole,
   Moon,
   QrCode,
   RefreshCcw,
@@ -16,6 +15,37 @@ import { challenges, roomConfig } from "./data/challenges.js";
 
 const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
+
+function isChallengeSolved(challenge, solved) {
+  return Boolean(solved[challenge.id]);
+}
+
+function getChallengeIndex(challenge) {
+  return challenges.findIndex((item) => item.id === challenge.id);
+}
+
+function getPreviousChallenge(challenge) {
+  const index = getChallengeIndex(challenge);
+  return index > 0 ? challenges[index - 1] : null;
+}
+
+function getNextChallenge(challenge) {
+  const index = getChallengeIndex(challenge);
+  return index >= 0 ? challenges[index + 1] ?? null : null;
+}
+
+function isChallengeUnlocked(challenge, solved) {
+  const previousChallenge = getPreviousChallenge(challenge);
+  return !previousChallenge || isChallengeSolved(previousChallenge, solved);
+}
+
+function areAllChallengesSolved(solved) {
+  return challenges.every((challenge) => isChallengeSolved(challenge, solved));
+}
+
+function getFirstUnsolvedChallenge(solved) {
+  return challenges.find((challenge) => !isChallengeSolved(challenge, solved)) ?? null;
+}
 
 function normalizeCode(value) {
   return value.trim().replace(/\s+/g, "");
@@ -121,14 +151,32 @@ export default function App() {
 
       <main>
         {activeChallenge ? (
-          <ChallengePage
-            challenge={activeChallenge}
-            solved={Boolean(solved[activeChallenge.id])}
-            onSolve={markSolved}
-            onNavigate={navigate}
-          />
+          isChallengeUnlocked(activeChallenge, solved) ? (
+            <ChallengePage
+              challenge={activeChallenge}
+              solved={isChallengeSolved(activeChallenge, solved)}
+              onSolve={markSolved}
+              onNavigate={navigate}
+            />
+          ) : (
+            <LockedPage
+              title={`${activeChallenge.title} נעול`}
+              message={`כדי לפתוח את השלב הזה צריך לפתור קודם את ${getPreviousChallenge(activeChallenge)?.title}.`}
+              targetChallenge={getPreviousChallenge(activeChallenge)}
+              onNavigate={navigate}
+            />
+          )
         ) : path === "/final" ? (
-          <FinalPage solved={solved} onNavigate={navigate} />
+          areAllChallengesSolved(solved) ? (
+            <FinalPage solved={solved} onNavigate={navigate} />
+          ) : (
+            <LockedPage
+              title="הקוד הסופי נעול"
+              message="הקוד הסופי ייפתח רק אחרי שכל חמשת השלבים נפתרו."
+              targetChallenge={getFirstUnsolvedChallenge(solved)}
+              onNavigate={navigate}
+            />
+          )
         ) : (
           <HomePage
             solved={solved}
@@ -143,6 +191,8 @@ export default function App() {
 }
 
 function HomePage({ solved, solvedCount, onNavigate, onReset }) {
+  const finalUnlocked = areAllChallengesSolved(solved);
+
   return (
     <section className="hero-section">
       <div className="hero-copy">
@@ -165,26 +215,47 @@ function HomePage({ solved, solvedCount, onNavigate, onReset }) {
       </div>
 
       <div className="challenge-grid">
-        {challenges.map((challenge) => (
-          <button
-            className={`challenge-card ${solved[challenge.id] ? "is-solved" : ""}`}
-            key={challenge.id}
-            type="button"
-            onClick={() => onNavigate(challenge.path)}
-          >
-            <span className="card-index">{challenge.id}</span>
-            <span>
-              <strong>{challenge.title}</strong>
-              <small>{solved[challenge.id] ? `נמצא: ${challenge.reward}` : "מוכן לסריקה"}</small>
-            </span>
-            {solved[challenge.id] ? <Check aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
-          </button>
-        ))}
+        {challenges.map((challenge) => {
+          const solvedChallenge = isChallengeSolved(challenge, solved);
+          const unlockedChallenge = isChallengeUnlocked(challenge, solved);
+          const cardState = solvedChallenge ? "is-solved" : unlockedChallenge ? "is-unlocked" : "is-locked";
+
+          return (
+            <button
+              className={`challenge-card ${cardState}`}
+              key={challenge.id}
+              type="button"
+              aria-disabled={!unlockedChallenge}
+              onClick={() => onNavigate(challenge.path)}
+            >
+              <span className="card-index">{challenge.id}</span>
+              <span>
+                <strong>{challenge.title}</strong>
+                <small>
+                  {solvedChallenge
+                    ? `נמצא: ${challenge.reward}`
+                    : unlockedChallenge
+                      ? "המנעול פתוח"
+                      : "נעול עד השלב הקודם"}
+                </small>
+              </span>
+              {solvedChallenge ? (
+                <Check aria-hidden="true" />
+              ) : (
+                <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <button className="primary-button wide-button" type="button" onClick={() => onNavigate("/final")}>
-        <Trophy aria-hidden="true" />
-        מעבר לקוד הסופי
+      <button
+        className={`primary-button wide-button ${finalUnlocked ? "" : "is-soft-locked"}`}
+        type="button"
+        onClick={() => onNavigate("/final")}
+      >
+        {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
+        {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
       </button>
     </section>
   );
@@ -255,6 +326,7 @@ function ChallengePage({ challenge, solved, onSolve, onNavigate }) {
       </form>
 
       <ResultMessage result={result} reward={challenge.reward} />
+      {result === "success" && <UnlockNotice challenge={challenge} onNavigate={onNavigate} />}
 
       <div className="page-actions">
         <button className="ghost-button" type="button" onClick={() => onNavigate("/")}>
@@ -300,6 +372,68 @@ function ResultMessage({ result, reward }) {
     <div className="hint-line">
       פתרון נכון יגלה אות או חלק מהקוד הסופי.
     </div>
+  );
+}
+
+function UnlockNotice({ challenge, onNavigate }) {
+  const nextChallenge = getNextChallenge(challenge);
+  const title = nextChallenge ? `${nextChallenge.title} נפתח!` : "הקוד הסופי נפתח!";
+  const actionLabel = nextChallenge ? `מעבר אל ${nextChallenge.title}` : "מעבר לקוד הסופי";
+  const actionPath = nextChallenge ? nextChallenge.path : "/final";
+
+  return (
+    <div className="unlock-notice" role="status">
+      <AnimatedLock state="opening" />
+      <span className="result-copy">
+        <strong className="result-title">{title}</strong>
+        <small>המנעול נפתח ואפשר להתקדם לשלב הבא.</small>
+      </span>
+      <button className="ghost-button" type="button" onClick={() => onNavigate(actionPath)}>
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
+function AnimatedLock({ state, compact = false, large = false }) {
+  const className = [
+    "animated-lock",
+    `is-${state}`,
+    compact ? "is-compact" : "",
+    large ? "is-large" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <svg className={className} viewBox="0 0 120 120" aria-hidden="true">
+      <defs>
+        <linearGradient id="lockBodyGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffd166" />
+          <stop offset="100%" stopColor="#ff6b5f" />
+        </linearGradient>
+        <linearGradient id="lockOpenGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#21c6bd" />
+          <stop offset="100%" stopColor="#8f6cff" />
+        </linearGradient>
+      </defs>
+      <g className="lock-sparkles">
+        <path d="M24 26 L28 36 L38 40 L28 44 L24 54 L20 44 L10 40 L20 36 Z" />
+        <path d="M94 18 L97 26 L105 29 L97 32 L94 40 L91 32 L83 29 L91 26 Z" />
+        <path d="M96 83 L100 92 L109 96 L100 100 L96 109 L92 100 L83 96 L92 92 Z" />
+      </g>
+      <path
+        className="lock-shackle"
+        d="M38 55 V42 C38 26 48 16 60 16 C72 16 82 26 82 42 V55"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="12"
+        strokeLinecap="round"
+      />
+      <rect className="lock-body" x="25" y="50" width="70" height="54" rx="14" />
+      <circle className="lock-keyhole" cx="60" cy="72" r="7" />
+      <path className="lock-keyhole" d="M60 76 L60 90" fill="none" strokeWidth="7" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -376,6 +510,28 @@ function FinalPage({ solved, onNavigate }) {
         <Home aria-hidden="true" />
         חזרה לשלבים
       </button>
+    </section>
+  );
+}
+
+function LockedPage({ title, message, targetChallenge, onNavigate }) {
+  return (
+    <section className="play-panel locked-panel">
+      <AnimatedLock state="closed" large />
+      <p className="eyebrow">נעול כרגע</p>
+      <h1>{title}</h1>
+      <p className="lead">{message}</p>
+      <div className="page-actions">
+        {targetChallenge && (
+          <button className="primary-button" type="button" onClick={() => onNavigate(targetChallenge.path)}>
+            אל {targetChallenge.title}
+          </button>
+        )}
+        <button className="ghost-button" type="button" onClick={() => onNavigate("/")}>
+          <Home aria-hidden="true" />
+          לכל השלבים
+        </button>
+      </div>
     </section>
   );
 }
