@@ -59,12 +59,19 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
 button {
   color: inherit;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
 }
 
 .app-shell {
@@ -199,6 +206,19 @@ h1 {
   font-size: clamp(1.05rem, 2vw, 1.28rem);
 }
 
+.config-note {
+  width: fit-content;
+  margin-block: 1rem 0 0;
+  padding-block: 0.45rem;
+  padding-inline: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--amber) 70%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
 .status-strip {
   display: flex;
   align-items: center;
@@ -326,21 +346,29 @@ h1 {
 }
 
 .code-input,
-.final-input {
+.final-input,
+.admin-input,
+.admin-textarea {
   width: 100%;
-  min-height: 4.2rem;
   border: 2px solid color-mix(in srgb, var(--teal) 50%, var(--line));
   border-radius: 1rem;
   background: var(--surface-strong);
   color: var(--text);
-  font-size: 2rem;
-  font-weight: 900;
-  text-align: center;
   outline: none;
 }
 
+.code-input,
+.final-input {
+  min-height: 4.2rem;
+  font-size: 2rem;
+  font-weight: 900;
+  text-align: center;
+}
+
 .code-input:focus,
-.final-input:focus {
+.final-input:focus,
+.admin-input:focus,
+.admin-textarea:focus {
   border-color: var(--coral);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--coral) 22%, transparent);
 }
@@ -371,6 +399,10 @@ h1 {
 
 .ghost-button {
   background: var(--surface-strong);
+}
+
+.spin-icon {
+  animation: spin 850ms linear infinite;
 }
 
 .wide-button {
@@ -586,7 +618,8 @@ h1 {
   inset: 0;
   z-index: 40;
   display: grid;
-  place-items: center;
+  align-items: start;
+  justify-items: center;
   min-height: 100vh;
   overflow: hidden;
   background: #8fdcf1;
@@ -608,14 +641,14 @@ h1 {
   z-index: 2;
   display: grid;
   justify-items: center;
-  gap: 0.8rem;
-  width: min(92vw, 760px);
-  margin-block-start: min(10vh, 5rem);
-  padding: clamp(1.1rem, 4vw, 2.4rem);
+  gap: 0.55rem;
+  width: min(92vw, 620px);
+  margin-block-start: clamp(0.75rem, 4vh, 2.4rem);
+  padding: clamp(0.9rem, 3vw, 1.55rem);
   border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 22px 70px rgba(18, 50, 68, 0.2);
-  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: 0 16px 46px rgba(18, 50, 68, 0.16);
+  backdrop-filter: blur(10px);
 }
 
 .vacation-content .eyebrow {
@@ -623,7 +656,7 @@ h1 {
 }
 
 .vacation-content h1 {
-  font-size: clamp(3rem, 12vw, 7rem);
+  font-size: clamp(2.5rem, 8vw, 5.2rem);
   color: #123244;
   text-shadow: 0 8px 28px rgba(255, 255, 255, 0.72);
 }
@@ -664,6 +697,99 @@ h1 {
 .vacation-button svg {
   width: 1.2rem;
   height: 1.2rem;
+}
+
+.admin-panel {
+  max-width: 980px;
+}
+
+.admin-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1.3rem;
+}
+
+.admin-form,
+.admin-section,
+.admin-challenge,
+.admin-panel label {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.admin-form {
+  gap: 1rem;
+}
+
+.admin-section {
+  min-width: 0;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
+}
+
+.admin-section legend {
+  padding-inline: 0.55rem;
+  font-weight: 900;
+}
+
+.admin-panel label {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.admin-input,
+.admin-textarea {
+  min-height: 3.2rem;
+  padding-block: 0.65rem;
+  padding-inline: 0.85rem;
+  color: var(--text);
+  font-weight: 800;
+  text-align: start;
+}
+
+.admin-textarea {
+  min-height: 6.6rem;
+  resize: vertical;
+}
+
+.admin-challenges {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.admin-challenge {
+  padding: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--teal) 50%, var(--line));
+  border-radius: 1rem;
+  background: var(--surface-strong);
+}
+
+.admin-inline-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.8rem;
+}
+
+.admin-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.admin-message {
+  margin: 0;
+  color: var(--teal-dark);
+  font-weight: 900;
+}
+
+:root[data-theme="dark"] .admin-message {
+  color: var(--teal);
 }
 
 .vacation-sparkles {
@@ -856,6 +982,12 @@ h1 {
 
   80% {
     transform: translateX(-0.2rem);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -1066,12 +1198,22 @@ h1 {
 
   .vacation-content {
     width: min(92vw, 25rem);
-    margin-block-start: -5vh;
+    margin-block-start: 0.65rem;
     border-radius: 1rem;
   }
 
   .vacation-content h1 {
-    font-size: clamp(2.6rem, 16vw, 4.6rem);
+    font-size: clamp(2.35rem, 13vw, 4.2rem);
+  }
+
+  .admin-heading,
+  .admin-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-inline-fields {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -1,9 +1,13 @@
 import {
   Check,
   Home,
+  LoaderCircle,
+  LogOut,
   Moon,
   QrCode,
   RefreshCcw,
+  Save,
+  Settings,
   Sparkles,
   Sun,
   Trophy,
@@ -11,44 +15,95 @@ import {
 } from "lucide-react";
 import React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { challenges, roomConfig } from "./data/challenges.js";
+import { defaultPublicGameConfig } from "./data/challenges.js";
 
 const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
+const ADMIN_TOKEN_KEY = "qr-escape-room-admin-token-v1";
+
+const API = {
+  publicConfig: "/.netlify/functions/public-config",
+  checkAnswer: "/.netlify/functions/check-answer",
+  checkFinal: "/.netlify/functions/check-final",
+  adminLogin: "/.netlify/functions/admin-login",
+  adminConfig: "/.netlify/functions/admin-config",
+};
 
 function isChallengeSolved(challenge, solved) {
   return Boolean(solved[challenge.id]);
 }
 
-function getChallengeIndex(challenge) {
+function getChallengeIndex(challenges, challenge) {
   return challenges.findIndex((item) => item.id === challenge.id);
 }
 
-function getPreviousChallenge(challenge) {
-  const index = getChallengeIndex(challenge);
+function getPreviousChallenge(challenges, challenge) {
+  const index = getChallengeIndex(challenges, challenge);
   return index > 0 ? challenges[index - 1] : null;
 }
 
-function getNextChallenge(challenge) {
-  const index = getChallengeIndex(challenge);
+function getNextChallenge(challenges, challenge) {
+  const index = getChallengeIndex(challenges, challenge);
   return index >= 0 ? challenges[index + 1] ?? null : null;
 }
 
-function isChallengeUnlocked(challenge, solved) {
-  const previousChallenge = getPreviousChallenge(challenge);
+function isChallengeUnlocked(challenges, challenge, solved) {
+  const previousChallenge = getPreviousChallenge(challenges, challenge);
   return !previousChallenge || isChallengeSolved(previousChallenge, solved);
 }
 
-function areAllChallengesSolved(solved) {
+function areAllChallengesSolved(challenges, solved) {
   return challenges.every((challenge) => isChallengeSolved(challenge, solved));
 }
 
-function getFirstUnsolvedChallenge(solved) {
+function getFirstUnsolvedChallenge(challenges, solved) {
   return challenges.find((challenge) => !isChallengeSolved(challenge, solved)) ?? null;
 }
 
-function normalizeCode(value) {
-  return value.trim().replace(/\s+/g, "");
+async function postJson(url, body, token) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function putJson(url, body, token) {
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function getJson(url, token) {
+  const response = await fetch(url, {
+    headers: token ? { authorization: `Bearer ${token}` } : undefined,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function readSolved() {
@@ -71,6 +126,9 @@ export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [solved, setSolved] = useState(readSolved);
   const [theme, setTheme] = useState(readTheme);
+  const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
+  const [configStatus, setConfigStatus] = useState("loading");
+  const { roomConfig, challenges } = gameConfig;
 
   useEffect(() => {
     const onPopState = () => setPath(window.location.pathname);
@@ -83,9 +141,34 @@ export default function App() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPublicConfig() {
+      try {
+        const nextConfig = await getJson(API.publicConfig);
+
+        if (!cancelled) {
+          setGameConfig(nextConfig);
+          setConfigStatus("ready");
+        }
+      } catch {
+        if (!cancelled) {
+          setConfigStatus("fallback");
+        }
+      }
+    }
+
+    loadPublicConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
-    [path],
+    [challenges, path],
   );
 
   const solvedCount = challenges.filter((challenge) => solved[challenge.id]).length;
@@ -146,14 +229,29 @@ export default function App() {
           >
             {theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
           </button>
+          <button
+            className="icon-button"
+            type="button"
+            onClick={() => navigate("/admin")}
+            aria-label="ניהול"
+            title="ניהול"
+          >
+            <Settings aria-hidden="true" />
+          </button>
         </nav>
       </header>
 
       <main>
-        {activeChallenge ? (
-          isChallengeUnlocked(activeChallenge, solved) ? (
+        {path === "/admin" ? (
+          <AdminPage
+            fallbackConfig={gameConfig}
+            onPublicConfigChange={(publicConfig) => setGameConfig(publicConfig)}
+          />
+        ) : activeChallenge ? (
+          isChallengeUnlocked(challenges, activeChallenge, solved) ? (
             <ChallengePage
               challenge={activeChallenge}
+              challenges={challenges}
               solved={isChallengeSolved(activeChallenge, solved)}
               onSolve={markSolved}
               onNavigate={navigate}
@@ -161,24 +259,32 @@ export default function App() {
           ) : (
             <LockedPage
               title={`${activeChallenge.title} נעול`}
-              message={`כדי לפתוח את השלב הזה צריך לפתור קודם את ${getPreviousChallenge(activeChallenge)?.title}.`}
-              targetChallenge={getPreviousChallenge(activeChallenge)}
+              message={`כדי לפתוח את השלב הזה צריך לפתור קודם את ${getPreviousChallenge(challenges, activeChallenge)?.title}.`}
+              targetChallenge={getPreviousChallenge(challenges, activeChallenge)}
               onNavigate={navigate}
             />
           )
         ) : path === "/final" ? (
-          areAllChallengesSolved(solved) ? (
-            <FinalPage solved={solved} onNavigate={navigate} />
+          areAllChallengesSolved(challenges, solved) ? (
+            <FinalPage
+              challenges={challenges}
+              roomConfig={roomConfig}
+              solved={solved}
+              onNavigate={navigate}
+            />
           ) : (
             <LockedPage
               title="הקוד הסופי נעול"
-              message="הקוד הסופי ייפתח רק אחרי שכל חמשת השלבים נפתרו."
-              targetChallenge={getFirstUnsolvedChallenge(solved)}
+              message="הקוד הסופי ייפתח רק אחרי שכל השלבים נפתרו."
+              targetChallenge={getFirstUnsolvedChallenge(challenges, solved)}
               onNavigate={navigate}
             />
           )
         ) : (
           <HomePage
+            challenges={challenges}
+            roomConfig={roomConfig}
+            configStatus={configStatus}
             solved={solved}
             solvedCount={solvedCount}
             onNavigate={navigate}
@@ -190,8 +296,8 @@ export default function App() {
   );
 }
 
-function HomePage({ solved, solvedCount, onNavigate, onReset }) {
-  const finalUnlocked = areAllChallengesSolved(solved);
+function HomePage({ challenges, roomConfig, configStatus, solved, solvedCount, onNavigate, onReset }) {
+  const finalUnlocked = areAllChallengesSolved(challenges, solved);
 
   return (
     <section className="hero-section">
@@ -199,6 +305,9 @@ function HomePage({ solved, solvedCount, onNavigate, onReset }) {
         <p className="eyebrow">משחק QR קצר</p>
         <h1>{roomConfig.title}</h1>
         <p>{roomConfig.subtitle}</p>
+        {configStatus === "fallback" && (
+          <p className="config-note">האתר עובד עכשיו עם הגדרות ברירת מחדל עד שהשרת יהיה זמין.</p>
+        )}
       </div>
 
       <div className="status-strip" aria-label="התקדמות">
@@ -217,7 +326,7 @@ function HomePage({ solved, solvedCount, onNavigate, onReset }) {
       <div className="challenge-grid">
         {challenges.map((challenge) => {
           const solvedChallenge = isChallengeSolved(challenge, solved);
-          const unlockedChallenge = isChallengeUnlocked(challenge, solved);
+          const unlockedChallenge = isChallengeUnlocked(challenges, challenge, solved);
           const cardState = solvedChallenge ? "is-solved" : unlockedChallenge ? "is-unlocked" : "is-locked";
 
           return (
@@ -261,7 +370,7 @@ function HomePage({ solved, solvedCount, onNavigate, onReset }) {
   );
 }
 
-function ChallengePage({ challenge, solved, onSolve, onNavigate }) {
+function ChallengePage({ challenge, challenges, solved, onSolve, onNavigate }) {
   const [value, setValue] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
 
@@ -270,17 +379,26 @@ function ChallengePage({ challenge, solved, onSolve, onNavigate }) {
     setResult(solved ? "success" : "idle");
   }, [challenge.id, solved]);
 
-  function submitAnswer(event) {
+  async function submitAnswer(event) {
     event.preventDefault();
-    const normalizedValue = value.trim();
+    setResult("checking");
 
-    if (normalizedValue === challenge.answer) {
-      setResult("success");
-      onSolve(challenge.id);
-      return;
+    try {
+      const response = await postJson(API.checkAnswer, {
+        id: challenge.id,
+        answer: value,
+      });
+
+      if (response.correct) {
+        setResult("success");
+        onSolve(challenge.id);
+        return;
+      }
+
+      setResult("error");
+    } catch {
+      setResult("error");
     }
-
-    setResult("error");
   }
 
   return (
@@ -319,14 +437,14 @@ function ChallengePage({ challenge, solved, onSolve, onNavigate }) {
           placeholder="000"
           dir="ltr"
         />
-        <button className="primary-button" type="submit">
-          <Sparkles aria-hidden="true" />
-          בדיקה
+        <button className="primary-button" type="submit" disabled={result === "checking"}>
+          {result === "checking" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Sparkles aria-hidden="true" />}
+          {result === "checking" ? "בודק..." : "בדיקה"}
         </button>
       </form>
 
       <ResultMessage result={result} reward={challenge.reward} />
-      {result === "success" && <UnlockNotice challenge={challenge} onNavigate={onNavigate} />}
+      {result === "success" && <UnlockNotice challenge={challenge} challenges={challenges} onNavigate={onNavigate} />}
 
       <div className="page-actions">
         <button className="ghost-button" type="button" onClick={() => onNavigate("/")}>
@@ -368,6 +486,14 @@ function ResultMessage({ result, reward }) {
     );
   }
 
+  if (result === "checking") {
+    return (
+      <div className="hint-line" role="status">
+        בודקים את הקוד...
+      </div>
+    );
+  }
+
   return (
     <div className="hint-line">
       פתרון נכון יגלה אות או חלק מהקוד הסופי.
@@ -375,8 +501,8 @@ function ResultMessage({ result, reward }) {
   );
 }
 
-function UnlockNotice({ challenge, onNavigate }) {
-  const nextChallenge = getNextChallenge(challenge);
+function UnlockNotice({ challenge, challenges, onNavigate }) {
+  const nextChallenge = getNextChallenge(challenges, challenge);
   const title = nextChallenge ? `${nextChallenge.title} נפתח!` : "הקוד הסופי נפתח!";
   const actionLabel = nextChallenge ? `מעבר אל ${nextChallenge.title}` : "מעבר לקוד הסופי";
   const actionPath = nextChallenge ? nextChallenge.path : "/final";
@@ -437,21 +563,26 @@ function AnimatedLock({ state, compact = false, large = false }) {
   );
 }
 
-function FinalPage({ solved, onNavigate }) {
+function FinalPage({ challenges, roomConfig, solved, onNavigate }) {
   const [value, setValue] = useState("");
   const [result, setResult] = useState("idle");
 
-  function submitFinal(event) {
+  async function submitFinal(event) {
     event.preventDefault();
-    const normalizedValue = normalizeCode(value);
-    const normalizedFinalCode = normalizeCode(roomConfig.finalCode);
+    setResult("checking");
 
-    if (normalizedValue === normalizedFinalCode) {
-      setResult("success");
-      return;
+    try {
+      const response = await postJson(API.checkFinal, { code: value });
+
+      if (response.correct) {
+        setResult("success");
+        return;
+      }
+
+      setResult("error");
+    } catch {
+      setResult("error");
     }
-
-    setResult("error");
   }
 
   if (result === "success") {
@@ -490,11 +621,17 @@ function FinalPage({ solved, onNavigate }) {
           onChange={(event) => setValue(event.target.value)}
           placeholder="הקלידו כאן"
         />
-        <button className="primary-button" type="submit">
-          <Trophy aria-hidden="true" />
-          פתיחה
+        <button className="primary-button" type="submit" disabled={result === "checking"}>
+          {result === "checking" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Trophy aria-hidden="true" />}
+          {result === "checking" ? "פותח..." : "פתיחה"}
         </button>
       </form>
+
+      {result === "checking" && (
+        <div className="hint-line" role="status">
+          בודקים את הקוד הסופי...
+        </div>
+      )}
 
       {result === "error" && (
         <div className="result error-result" role="alert">
@@ -510,6 +647,250 @@ function FinalPage({ solved, onNavigate }) {
         <Home aria-hidden="true" />
         חזרה לשלבים
       </button>
+    </section>
+  );
+}
+
+function AdminPage({ fallbackConfig, onPublicConfigChange }) {
+  const [token, setToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
+  const [password, setPassword] = useState("");
+  const [config, setConfig] = useState(null);
+  const [status, setStatus] = useState(token ? "loading" : "idle");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    loadAdminConfig(token);
+  }, [token]);
+
+  async function loadAdminConfig(activeToken) {
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      const nextConfig = await getJson(API.adminConfig, activeToken);
+      setConfig(nextConfig);
+      setStatus("ready");
+    } catch {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      setToken("");
+      setConfig(null);
+      setStatus("idle");
+      setMessage("החיבור לניהול פג או לא תקין. צריך להתחבר שוב.");
+    }
+  }
+
+  async function submitLogin(event) {
+    event.preventDefault();
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      const response = await postJson(API.adminLogin, { password });
+      localStorage.setItem(ADMIN_TOKEN_KEY, response.token);
+      setPassword("");
+      setToken(response.token);
+    } catch {
+      setStatus("idle");
+      setMessage("הסיסמה לא נכונה או שהאדמין עדיין לא הוגדר.");
+    }
+  }
+
+  function updateRoomConfig(field, value) {
+    setConfig((current) => ({
+      ...current,
+      roomConfig: {
+        ...current.roomConfig,
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateChallenge(index, field, value) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) =>
+        challengeIndex === index ? { ...challenge, [field]: value } : challenge,
+      ),
+    }));
+  }
+
+  async function saveConfig(event) {
+    event.preventDefault();
+    setStatus("saving");
+    setMessage("");
+
+    try {
+      const response = await putJson(API.adminConfig, config, token);
+      setConfig(response.config);
+      onPublicConfigChange(response.publicConfig);
+      setStatus("ready");
+      setMessage("השינויים נשמרו.");
+    } catch {
+      setStatus("ready");
+      setMessage("השמירה נכשלה. נסה שוב.");
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    setToken("");
+    setConfig(null);
+    setStatus("idle");
+    setMessage("");
+  }
+
+  if (!token || !config) {
+    return (
+      <section className="play-panel admin-panel">
+        <div className="panel-header">
+          <span className="round-badge">
+            <Settings aria-hidden="true" />
+          </span>
+          <div>
+            <p className="eyebrow">ניהול</p>
+            <h1>{fallbackConfig.roomConfig.title}</h1>
+          </div>
+        </div>
+
+        <form className="code-form" onSubmit={submitLogin}>
+          <label htmlFor="admin-password">סיסמת אדמין</label>
+          <input
+            id="admin-password"
+            className="final-input"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="הקלד סיסמה"
+            dir="ltr"
+          />
+          <button className="primary-button" type="submit" disabled={status === "loading"}>
+            {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Settings aria-hidden="true" />}
+            כניסה
+          </button>
+        </form>
+
+        {message && <p className="admin-message">{message}</p>}
+      </section>
+    );
+  }
+
+  return (
+    <section className="play-panel admin-panel">
+      <div className="admin-heading">
+        <div className="panel-header">
+          <span className="round-badge">
+            <Settings aria-hidden="true" />
+          </span>
+          <div>
+            <p className="eyebrow">ניהול המשחק</p>
+            <h1>עריכת קודים</h1>
+          </div>
+        </div>
+        <button className="ghost-button" type="button" onClick={logout}>
+          <LogOut aria-hidden="true" />
+          יציאה
+        </button>
+      </div>
+
+      <form className="admin-form" onSubmit={saveConfig}>
+        <fieldset className="admin-section">
+          <legend>הגדרות כלליות</legend>
+          <label>
+            שם המשחק
+            <input
+              className="admin-input"
+              value={config.roomConfig.title}
+              onChange={(event) => updateRoomConfig("title", event.target.value)}
+            />
+          </label>
+          <label>
+            טקסט פתיחה
+            <textarea
+              className="admin-textarea"
+              value={config.roomConfig.subtitle}
+              onChange={(event) => updateRoomConfig("subtitle", event.target.value)}
+            />
+          </label>
+          <label>
+            טקסט לפני הקוד הסופי
+            <textarea
+              className="admin-textarea"
+              value={config.roomConfig.finalPrompt}
+              onChange={(event) => updateRoomConfig("finalPrompt", event.target.value)}
+            />
+          </label>
+          <label>
+            פתרון סופי
+            <input
+              className="admin-input"
+              value={config.roomConfig.finalCode}
+              onChange={(event) => updateRoomConfig("finalCode", event.target.value)}
+              dir="auto"
+            />
+          </label>
+        </fieldset>
+
+        <fieldset className="admin-section">
+          <legend>שלבי QR</legend>
+          <div className="admin-challenges">
+            {config.challenges.map((challenge, index) => (
+              <div className="admin-challenge" key={challenge.id}>
+                <strong>שלב {challenge.id}</strong>
+                <label>
+                  כותרת
+                  <input
+                    className="admin-input"
+                    value={challenge.title}
+                    onChange={(event) => updateChallenge(index, "title", event.target.value)}
+                  />
+                </label>
+                <label>
+                  שאלה באתר
+                  <textarea
+                    className="admin-textarea"
+                    value={challenge.question}
+                    onChange={(event) => updateChallenge(index, "question", event.target.value)}
+                    placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
+                  />
+                </label>
+                <div className="admin-inline-fields">
+                  <label>
+                    תשובה
+                    <input
+                      className="admin-input"
+                      value={challenge.answer}
+                      onChange={(event) => updateChallenge(index, "answer", event.target.value)}
+                      dir="auto"
+                    />
+                  </label>
+                  <label>
+                    חלק בקוד הסופי
+                    <input
+                      className="admin-input"
+                      value={challenge.reward}
+                      onChange={(event) => updateChallenge(index, "reward", event.target.value)}
+                      dir="auto"
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="admin-actions">
+          <button className="primary-button" type="submit" disabled={status === "saving"}>
+            {status === "saving" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Save aria-hidden="true" />}
+            {status === "saving" ? "שומר..." : "שמירה"}
+          </button>
+          {message && <span className="admin-message">{message}</span>}
+        </div>
+      </form>
     </section>
   );
 }
