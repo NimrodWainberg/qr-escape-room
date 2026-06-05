@@ -1,6 +1,6 @@
 export const roomConfig = {
-  title: "מסע הקודים",
-  subtitle: "סרקו QR, פתרו קוד קצר, ואספו חלק מהסיסמה הסופית.",
+  title: "חדר בריחה",
+  subtitle: "",
   finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
 };
 

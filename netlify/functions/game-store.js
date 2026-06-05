@@ -7,8 +7,8 @@ const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
 const defaultGameConfig = {
   roomConfig: {
-    title: "מסע הקודים",
-    subtitle: "סרקו QR, פתרו קוד קצר, ואספו חלק מהסיסמה הסופית.",
+    title: "חדר בריחה",
+    subtitle: "",
     finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
     finalCode: "חופשה נעימה",
   },

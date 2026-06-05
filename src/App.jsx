@@ -302,9 +302,9 @@ function HomePage({ challenges, roomConfig, configStatus, solved, solvedCount, o
   return (
     <section className="hero-section">
       <div className="hero-copy">
-        <p className="eyebrow">משחק QR קצר</p>
+        <p className="eyebrow">המשימה מתחילה כאן</p>
         <h1>{roomConfig.title}</h1>
-        <p>{roomConfig.subtitle}</p>
+        {roomConfig.subtitle && <p>{roomConfig.subtitle}</p>}
         {configStatus === "fallback" && (
           <p className="config-note">האתר עובד עכשיו עם הגדרות ברירת מחדל עד שהשרת יהיה זמין.</p>
         )}
