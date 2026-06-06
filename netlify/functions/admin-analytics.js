@@ -1,7 +1,15 @@
-import { getAnalytics, initBlobContext, jsonResponse, methodNotAllowed, verifyAdminToken } from "./game-store.js";
+import {
+  deletePlayers,
+  getAnalytics,
+  initBlobContext,
+  jsonResponse,
+  methodNotAllowed,
+  readJsonBody,
+  verifyAdminToken,
+} from "./game-store.js";
 
 export const handler = async (event) => {
-  if (event.httpMethod !== "GET") {
+  if (!["GET", "DELETE"].includes(event.httpMethod)) {
     return methodNotAllowed();
   }
 
@@ -10,6 +18,16 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
+  if (event.httpMethod === "DELETE") {
+    const body = readJsonBody(event);
+
+    if (!body) {
+      return jsonResponse(400, { error: "invalid_json" });
+    }
+
+    return jsonResponse(200, await deletePlayers(body.ids));
+  }
+
   const analytics = await getAnalytics();
 
   return jsonResponse(200, analytics);

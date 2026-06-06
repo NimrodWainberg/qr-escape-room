@@ -632,6 +632,23 @@ export async function getLeaderboard({ limit = 10 } = {}) {
   return playersData.players.map((player) => summarizePlayer(player, config)).sort(sortLeaderboard).slice(0, limit);
 }
 
+export async function deletePlayers(ids) {
+  const playerIds = new Set((Array.isArray(ids) ? ids : []).map((id) => cleanString(id)).filter(Boolean));
+
+  if (!playerIds.size) {
+    return getAnalytics();
+  }
+
+  const store = getStore(STORE_NAME);
+  const legacyData = sanitizePlayersData(await store.get(PLAYERS_KEY, { type: "json" }));
+  await store.setJSON(PLAYERS_KEY, {
+    players: legacyData.players.filter((player) => !playerIds.has(player.id)),
+  });
+  await Promise.all([...playerIds].map((id) => store.delete(`${PLAYER_KEY_PREFIX}${id}`)));
+
+  return getAnalytics();
+}
+
 export async function getAnalytics() {
   const [playersData, config] = await Promise.all([getPlayersData(), getGameConfig()]);
   const summaries = playersData.players.map((player) => summarizePlayer(player, config)).sort(sortLeaderboard);
