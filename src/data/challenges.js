@@ -2,6 +2,13 @@ export const roomConfig = {
   title: "חדר בריחה",
   subtitle: "",
   finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
+  defaultSuccessMessage: "פתרתם את השלב וקיבלתם חלק מהקוד הסופי:",
+  defaultErrorMessage: "הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב.",
+  finalErrorMessage: "אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.",
+  finalSuccessEyebrow: "הבריחה הושלמה",
+  finalSuccessTitle: "חופשה נעימה!",
+  finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
+  finalSuccessButtonLabel: "חזרה לשלבים",
 };
 
 export const challenges = [
@@ -11,6 +18,8 @@ export const challenges = [
     title: "קוד 1",
     question: "",
     reward: "חו",
+    successMessage: "",
+    errorMessage: "",
   },
   {
     id: 2,
@@ -18,6 +27,8 @@ export const challenges = [
     title: "קוד 2",
     question: "",
     reward: "פ",
+    successMessage: "",
+    errorMessage: "",
   },
   {
     id: 3,
@@ -25,6 +36,8 @@ export const challenges = [
     title: "קוד 3",
     question: "",
     reward: "שה",
+    successMessage: "",
+    errorMessage: "",
   },
   {
     id: 4,
@@ -32,6 +45,8 @@ export const challenges = [
     title: "קוד 4",
     question: "",
     reward: "נע",
+    successMessage: "",
+    errorMessage: "",
   },
   {
     id: 5,
@@ -39,6 +54,8 @@ export const challenges = [
     title: "קוד 5",
     question: "",
     reward: "ימה",
+    successMessage: "",
+    errorMessage: "",
   },
 ];
 

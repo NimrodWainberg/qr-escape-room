@@ -770,6 +770,10 @@ h1 {
   resize: vertical;
 }
 
+.admin-textarea.compact-textarea {
+  min-height: 4.6rem;
+}
+
 .admin-challenges {
   display: grid;
   gap: 0.9rem;

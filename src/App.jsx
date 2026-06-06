@@ -62,6 +62,11 @@ function getFirstUnsolvedChallenge(challenges, solved) {
   return challenges.find((challenge) => !isChallengeSolved(challenge, solved)) ?? null;
 }
 
+function getEditableText(value, fallback) {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
 async function postJson(url, body, token) {
   const response = await fetch(url, {
     method: "POST",
@@ -255,6 +260,7 @@ export default function App() {
             <ChallengePage
               challenge={activeChallenge}
               challenges={challenges}
+              roomConfig={roomConfig}
               solved={isChallengeSolved(activeChallenge, solved)}
               onSolve={markSolved}
               onNavigate={navigate}
@@ -373,7 +379,7 @@ function HomePage({ challenges, roomConfig, configStatus, solved, solvedCount, o
   );
 }
 
-function ChallengePage({ challenge, challenges, solved, onSolve, onNavigate }) {
+function ChallengePage({ challenge, challenges, roomConfig, solved, onSolve, onNavigate }) {
   const [value, setValue] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
 
@@ -446,7 +452,7 @@ function ChallengePage({ challenge, challenges, solved, onSolve, onNavigate }) {
         </button>
       </form>
 
-      <ResultMessage result={result} reward={challenge.reward} />
+      <ResultMessage challenge={challenge} result={result} roomConfig={roomConfig} />
       {result === "success" && <UnlockNotice challenge={challenge} challenges={challenges} onNavigate={onNavigate} />}
 
       <div className="page-actions">
@@ -463,16 +469,25 @@ function ChallengePage({ challenge, challenges, solved, onSolve, onNavigate }) {
   );
 }
 
-function ResultMessage({ result, reward }) {
+function ResultMessage({ challenge, result, roomConfig }) {
+  const successMessage = getEditableText(
+    challenge.successMessage,
+    getEditableText(roomConfig.defaultSuccessMessage, "פתרתם את השלב וקיבלתם חלק מהקוד הסופי:"),
+  );
+  const errorMessage = getEditableText(
+    challenge.errorMessage,
+    getEditableText(roomConfig.defaultErrorMessage, "הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב."),
+  );
+
   if (result === "success") {
     return (
       <div className="result success-result" role="status">
         <Check aria-hidden="true" />
         <span className="result-copy">
           <strong className="result-title">כל הכבוד!</strong>
-          <small>פתרתם את השלב וקיבלתם חלק מהקוד הסופי:</small>
+          <small>{successMessage}</small>
         </span>
-        <strong>{reward}</strong>
+        <strong>{challenge.reward}</strong>
       </div>
     );
   }
@@ -483,7 +498,7 @@ function ResultMessage({ result, reward }) {
         <X aria-hidden="true" />
         <span className="result-copy">
           <strong className="result-title">כמעט!</strong>
-          <small>הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב.</small>
+          <small>{errorMessage}</small>
         </span>
       </div>
     );
@@ -589,7 +604,7 @@ function FinalPage({ challenges, roomConfig, solved, onNavigate }) {
   }
 
   if (result === "success") {
-    return <VacationCelebration onNavigate={onNavigate} />;
+    return <VacationCelebration onNavigate={onNavigate} roomConfig={roomConfig} />;
   }
 
   return (
@@ -641,7 +656,12 @@ function FinalPage({ challenges, roomConfig, solved, onNavigate }) {
           <X aria-hidden="true" />
           <span className="result-copy">
             <strong className="result-title">עדיין לא.</strong>
-            <small>אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.</small>
+            <small>
+              {getEditableText(
+                roomConfig.finalErrorMessage,
+                "אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.",
+              )}
+            </small>
           </span>
         </div>
       )}
@@ -668,6 +688,8 @@ function createBlankChallenge(challenges) {
     question: "",
     answer: "",
     reward: "",
+    successMessage: "",
+    errorMessage: "",
   };
 }
 
@@ -866,6 +888,26 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
               onChange={(event) => updateRoomConfig("finalPrompt", event.target.value)}
             />
           </label>
+          <div className="admin-inline-fields">
+            <label>
+              הודעת הצלחה ברירת מחדל
+              <textarea
+                className="admin-textarea compact-textarea"
+                value={config.roomConfig.defaultSuccessMessage}
+                onChange={(event) => updateRoomConfig("defaultSuccessMessage", event.target.value)}
+                placeholder="תופיע אם לשלב אין הודעת הצלחה משלו"
+              />
+            </label>
+            <label>
+              הודעת שגיאה ברירת מחדל
+              <textarea
+                className="admin-textarea compact-textarea"
+                value={config.roomConfig.defaultErrorMessage}
+                onChange={(event) => updateRoomConfig("defaultErrorMessage", event.target.value)}
+                placeholder="תופיע אם לשלב אין הודעת שגיאה משלו"
+              />
+            </label>
+          </div>
           <label>
             פתרון סופי
             <input
@@ -873,6 +915,50 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
               value={config.roomConfig.finalCode}
               onChange={(event) => updateRoomConfig("finalCode", event.target.value)}
               dir="auto"
+            />
+          </label>
+          <label>
+            הודעת שגיאה בקוד הסופי
+            <textarea
+              className="admin-textarea compact-textarea"
+              value={config.roomConfig.finalErrorMessage}
+              onChange={(event) => updateRoomConfig("finalErrorMessage", event.target.value)}
+            />
+          </label>
+        </fieldset>
+
+        <fieldset className="admin-section">
+          <legend>מסך סיום</legend>
+          <label>
+            כותרת קטנה
+            <input
+              className="admin-input"
+              value={config.roomConfig.finalSuccessEyebrow}
+              onChange={(event) => updateRoomConfig("finalSuccessEyebrow", event.target.value)}
+            />
+          </label>
+          <label>
+            כותרת גדולה
+            <input
+              className="admin-input"
+              value={config.roomConfig.finalSuccessTitle}
+              onChange={(event) => updateRoomConfig("finalSuccessTitle", event.target.value)}
+            />
+          </label>
+          <label>
+            הודעה במסך הסיום
+            <textarea
+              className="admin-textarea compact-textarea"
+              value={config.roomConfig.finalSuccessMessage}
+              onChange={(event) => updateRoomConfig("finalSuccessMessage", event.target.value)}
+            />
+          </label>
+          <label>
+            טקסט כפתור במסך הסיום
+            <input
+              className="admin-input"
+              value={config.roomConfig.finalSuccessButtonLabel}
+              onChange={(event) => updateRoomConfig("finalSuccessButtonLabel", event.target.value)}
             />
           </label>
         </fieldset>
@@ -922,6 +1008,26 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
                     placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
                   />
                 </label>
+                <div className="admin-inline-fields">
+                  <label>
+                    הודעת הצלחה לשלב
+                    <textarea
+                      className="admin-textarea compact-textarea"
+                      value={challenge.successMessage}
+                      onChange={(event) => updateChallenge(index, "successMessage", event.target.value)}
+                      placeholder="ריק = הודעת הצלחה ברירת מחדל"
+                    />
+                  </label>
+                  <label>
+                    הודעת שגיאה לשלב
+                    <textarea
+                      className="admin-textarea compact-textarea"
+                      value={challenge.errorMessage}
+                      onChange={(event) => updateChallenge(index, "errorMessage", event.target.value)}
+                      placeholder="ריק = הודעת שגיאה ברירת מחדל"
+                    />
+                  </label>
+                </div>
                 <div className="admin-inline-fields">
                   <label>
                     תשובה
@@ -981,7 +1087,7 @@ function LockedPage({ title, message, targetChallenge, onNavigate }) {
   );
 }
 
-function VacationCelebration({ onNavigate }) {
+function VacationCelebration({ onNavigate, roomConfig }) {
   return (
     <section className="vacation-screen" aria-live="polite">
       <div className="vacation-sparkles" aria-hidden="true">
@@ -1081,12 +1187,12 @@ function VacationCelebration({ onNavigate }) {
       </svg>
 
       <div className="vacation-content">
-        <p className="eyebrow">הבריחה הושלמה</p>
-        <h1>חופשה נעימה!</h1>
-        <p>כל הכבוד, פתחתם את הקוד הסופי.</p>
+        <p className="eyebrow">{getEditableText(roomConfig.finalSuccessEyebrow, "הבריחה הושלמה")}</p>
+        <h1>{getEditableText(roomConfig.finalSuccessTitle, "חופשה נעימה!")}</h1>
+        <p>{getEditableText(roomConfig.finalSuccessMessage, "כל הכבוד, פתחתם את הקוד הסופי.")}</p>
         <button className="vacation-button" type="button" onClick={() => onNavigate("/")}>
           <Home aria-hidden="true" />
-          חזרה לשלבים
+          {getEditableText(roomConfig.finalSuccessButtonLabel, "חזרה לשלבים")}
         </button>
       </div>
     </section>

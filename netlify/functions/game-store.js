@@ -10,6 +10,13 @@ const defaultGameConfig = {
     title: "חדר בריחה",
     subtitle: "",
     finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
+    defaultSuccessMessage: "פתרתם את השלב וקיבלתם חלק מהקוד הסופי:",
+    defaultErrorMessage: "הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב.",
+    finalErrorMessage: "אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.",
+    finalSuccessEyebrow: "הבריחה הושלמה",
+    finalSuccessTitle: "חופשה נעימה!",
+    finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
+    finalSuccessButtonLabel: "חזרה לשלבים",
     finalCode: "חופשה נעימה",
   },
   challenges: [
@@ -72,6 +79,8 @@ function sanitizeChallenge(challenge, index) {
     question: cleanString(challenge?.question),
     answer: cleanString(challenge?.answer),
     reward: cleanString(challenge?.reward),
+    successMessage: cleanString(challenge?.successMessage),
+    errorMessage: cleanString(challenge?.errorMessage),
   };
 }
 
@@ -87,6 +96,31 @@ export function sanitizeGameConfig(config) {
       title: cleanString(sourceRoomConfig.title, defaultGameConfig.roomConfig.title),
       subtitle: cleanString(sourceRoomConfig.subtitle, defaultGameConfig.roomConfig.subtitle),
       finalPrompt: cleanString(sourceRoomConfig.finalPrompt, defaultGameConfig.roomConfig.finalPrompt),
+      defaultSuccessMessage: cleanString(
+        sourceRoomConfig.defaultSuccessMessage,
+        defaultGameConfig.roomConfig.defaultSuccessMessage,
+      ),
+      defaultErrorMessage: cleanString(
+        sourceRoomConfig.defaultErrorMessage,
+        defaultGameConfig.roomConfig.defaultErrorMessage,
+      ),
+      finalErrorMessage: cleanString(sourceRoomConfig.finalErrorMessage, defaultGameConfig.roomConfig.finalErrorMessage),
+      finalSuccessEyebrow: cleanString(
+        sourceRoomConfig.finalSuccessEyebrow,
+        defaultGameConfig.roomConfig.finalSuccessEyebrow,
+      ),
+      finalSuccessTitle: cleanString(
+        sourceRoomConfig.finalSuccessTitle,
+        defaultGameConfig.roomConfig.finalSuccessTitle,
+      ),
+      finalSuccessMessage: cleanString(
+        sourceRoomConfig.finalSuccessMessage,
+        defaultGameConfig.roomConfig.finalSuccessMessage,
+      ),
+      finalSuccessButtonLabel: cleanString(
+        sourceRoomConfig.finalSuccessButtonLabel,
+        defaultGameConfig.roomConfig.finalSuccessButtonLabel,
+      ),
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
     },
     challenges: sourceChallenges.map(sanitizeChallenge),
@@ -101,6 +135,13 @@ export function toPublicConfig(config) {
       title: safeConfig.roomConfig.title,
       subtitle: safeConfig.roomConfig.subtitle,
       finalPrompt: safeConfig.roomConfig.finalPrompt,
+      defaultSuccessMessage: safeConfig.roomConfig.defaultSuccessMessage,
+      defaultErrorMessage: safeConfig.roomConfig.defaultErrorMessage,
+      finalErrorMessage: safeConfig.roomConfig.finalErrorMessage,
+      finalSuccessEyebrow: safeConfig.roomConfig.finalSuccessEyebrow,
+      finalSuccessTitle: safeConfig.roomConfig.finalSuccessTitle,
+      finalSuccessMessage: safeConfig.roomConfig.finalSuccessMessage,
+      finalSuccessButtonLabel: safeConfig.roomConfig.finalSuccessButtonLabel,
     },
     challenges: safeConfig.challenges.map(({ answer, ...challenge }) => challenge),
   };
