@@ -4,6 +4,7 @@ import {
   jsonResponse,
   methodNotAllowed,
   normalizeCode,
+  recordChallengeAttempt,
   readJsonBody,
 } from "./game-store.js";
 
@@ -27,9 +28,11 @@ export const handler = async (event) => {
   }
 
   const correct = normalizeCode(body.answer) === normalizeCode(challenge.answer);
+  const player = await recordChallengeAttempt(event, challenge.id, correct);
 
   return jsonResponse(200, {
     correct,
     reward: correct ? challenge.reward : undefined,
+    player,
   });
 };

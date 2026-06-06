@@ -4,6 +4,7 @@ import {
   jsonResponse,
   methodNotAllowed,
   normalizeCode,
+  recordFinalAttempt,
   readJsonBody,
 } from "./game-store.js";
 
@@ -21,6 +22,7 @@ export const handler = async (event) => {
   initBlobContext(event);
   const config = await getGameConfig();
   const correct = normalizeCode(body.code) === normalizeCode(config.roomConfig.finalCode);
+  const player = await recordFinalAttempt(event, correct);
 
-  return jsonResponse(200, { correct });
+  return jsonResponse(200, { correct, player });
 };

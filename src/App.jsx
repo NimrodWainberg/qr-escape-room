@@ -22,6 +22,7 @@ import { defaultPublicGameConfig } from "./data/challenges.js";
 const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
 const ADMIN_TOKEN_KEY = "qr-escape-room-admin-token-v1";
+const PLAYER_SESSION_KEY = "qr-escape-room-player-session-v1";
 
 const API = {
   publicConfig: "/.netlify/functions/public-config",
@@ -29,6 +30,10 @@ const API = {
   checkFinal: "/.netlify/functions/check-final",
   adminLogin: "/.netlify/functions/admin-login",
   adminConfig: "/.netlify/functions/admin-config",
+  adminAnalytics: "/.netlify/functions/admin-analytics",
+  adminUsers: "/.netlify/functions/admin-users",
+  leaderboard: "/.netlify/functions/leaderboard",
+  playerLogin: "/.netlify/functions/player-login",
 };
 
 function isChallengeSolved(challenge, solved) {
@@ -129,10 +134,37 @@ function readTheme() {
   return localStorage.getItem(THEME_KEY) ?? "light";
 }
 
+function readPlayerSession() {
+  try {
+    return JSON.parse(localStorage.getItem(PLAYER_SESSION_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function formatDuration(milliseconds) {
+  if (!Number.isFinite(milliseconds)) {
+    return "עדיין במשחק";
+  }
+
+  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours}ש ${minutes % 60}ד`;
+  }
+
+  return `${minutes}ד ${String(seconds).padStart(2, "0")}ש`;
+}
+
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [solved, setSolved] = useState(readSolved);
   const [theme, setTheme] = useState(readTheme);
+  const [playerSession, setPlayerSession] = useState(readPlayerSession);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
   const [configStatus, setConfigStatus] = useState("loading");
   const { roomConfig, challenges } = gameConfig;
@@ -173,6 +205,10 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    loadLeaderboard();
+  }, []);
+
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
     [challenges, path],
@@ -199,6 +235,39 @@ export default function App() {
     setSolved({});
   }
 
+  async function loadLeaderboard() {
+    try {
+      const response = await getJson(API.leaderboard);
+      setLeaderboard(response.leaderboard ?? []);
+    } catch {
+      setLeaderboard([]);
+    }
+  }
+
+  async function loginPlayer(credentials) {
+    const session = await postJson(API.playerLogin, credentials);
+    localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(session));
+    setPlayerSession(session);
+    await loadLeaderboard();
+  }
+
+  function updatePlayer(player) {
+    if (!playerSession || !player) {
+      return;
+    }
+
+    const nextSession = { ...playerSession, player };
+    localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(nextSession));
+    setPlayerSession(nextSession);
+  }
+
+  function logoutPlayer() {
+    localStorage.removeItem(PLAYER_SESSION_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    setPlayerSession(null);
+    setSolved({});
+  }
+
   return (
     <div className="app-shell">
       <AnimatedBackdrop />
@@ -209,6 +278,14 @@ export default function App() {
         </button>
 
         <nav className="nav-actions" aria-label="ניווט">
+          {playerSession?.player?.name && (
+            <span className="player-pill">
+              שלום {playerSession.player.name}
+              <button type="button" onClick={logoutPlayer} aria-label="יציאה מהמשחק" title="יציאה מהמשחק">
+                <LogOut aria-hidden="true" />
+              </button>
+            </span>
+          )}
           <button
             className="icon-button"
             type="button"
@@ -256,14 +333,19 @@ export default function App() {
             onResetProgress={resetProgress}
           />
         ) : activeChallenge ? (
-          isChallengeUnlocked(challenges, activeChallenge, solved) ? (
+          !playerSession ? (
+            <PlayerGate onLogin={loginPlayer} />
+          ) : isChallengeUnlocked(challenges, activeChallenge, solved) ? (
             <ChallengePage
               challenge={activeChallenge}
               challenges={challenges}
               roomConfig={roomConfig}
+              playerSession={playerSession}
               solved={isChallengeSolved(activeChallenge, solved)}
               onSolve={markSolved}
               onNavigate={navigate}
+              onPlayerUpdate={updatePlayer}
+              onLeaderboardRefresh={loadLeaderboard}
             />
           ) : (
             <LockedPage
@@ -274,12 +356,17 @@ export default function App() {
             />
           )
         ) : path === "/final" ? (
-          areAllChallengesSolved(challenges, solved) ? (
+          !playerSession ? (
+            <PlayerGate onLogin={loginPlayer} />
+          ) : areAllChallengesSolved(challenges, solved) ? (
             <FinalPage
               challenges={challenges}
               roomConfig={roomConfig}
+              playerSession={playerSession}
               solved={solved}
               onNavigate={navigate}
+              onPlayerUpdate={updatePlayer}
+              onLeaderboardRefresh={loadLeaderboard}
             />
           ) : (
             <LockedPage
@@ -294,8 +381,11 @@ export default function App() {
             challenges={challenges}
             roomConfig={roomConfig}
             configStatus={configStatus}
+            playerSession={playerSession}
+            leaderboard={leaderboard}
             solved={solved}
             solvedCount={solvedCount}
+            onLogin={loginPlayer}
             onNavigate={navigate}
             onReset={resetProgress}
           />
@@ -305,7 +395,18 @@ export default function App() {
   );
 }
 
-function HomePage({ challenges, roomConfig, configStatus, solved, solvedCount, onNavigate, onReset }) {
+function HomePage({
+  challenges,
+  roomConfig,
+  configStatus,
+  playerSession,
+  leaderboard,
+  solved,
+  solvedCount,
+  onLogin,
+  onNavigate,
+  onReset,
+}) {
   const finalUnlocked = areAllChallengesSolved(challenges, solved);
 
   return (
@@ -318,6 +419,15 @@ function HomePage({ challenges, roomConfig, configStatus, solved, solvedCount, o
           <p className="config-note">האתר עובד עכשיו עם הגדרות ברירת מחדל עד שהשרת יהיה זמין.</p>
         )}
       </div>
+
+      {!playerSession ? (
+        <PlayerLoginPanel onLogin={onLogin} />
+      ) : (
+        <div className="player-status">
+          <strong>שלום {playerSession.player.name}</strong>
+          <span>הניקוד והזמנים שלך נשמרים לדירוג.</span>
+        </div>
+      )}
 
       <div className="status-strip" aria-label="התקדמות">
         <div>
@@ -375,11 +485,122 @@ function HomePage({ challenges, roomConfig, configStatus, solved, solvedCount, o
         {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
         {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
       </button>
+
+      <LeaderboardPanel leaderboard={leaderboard} />
     </section>
   );
 }
 
-function ChallengePage({ challenge, challenges, roomConfig, solved, onSolve, onNavigate }) {
+function PlayerGate({ onLogin }) {
+  return (
+    <section className="play-panel">
+      <div className="panel-header">
+        <span className="round-badge">
+          <Trophy aria-hidden="true" />
+        </span>
+        <div>
+          <p className="eyebrow">כניסה למשחק</p>
+          <h1>לפני שמתחילים</h1>
+        </div>
+      </div>
+      <p className="lead">הכניסה שומרת ניקוד, זמן ודירוג. אין עדיין אימות מייל אמיתי.</p>
+      <PlayerLoginPanel onLogin={onLogin} />
+    </section>
+  );
+}
+
+function PlayerLoginPanel({ onLogin }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState("");
+
+  async function submitLogin(event) {
+    event.preventDefault();
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      await onLogin({ name, email });
+      setStatus("idle");
+    } catch {
+      setStatus("idle");
+      setMessage("לא הצלחנו להיכנס. בדקו שם ואימייל ונסו שוב.");
+    }
+  }
+
+  return (
+    <form className="player-login" onSubmit={submitLogin}>
+      <label>
+        שם לתצוגה
+        <input
+          className="admin-input"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="איך לקרוא לך?"
+        />
+      </label>
+      <label>
+        אימייל
+        <input
+          className="admin-input"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="name@example.com"
+          dir="ltr"
+        />
+      </label>
+      <button className="primary-button" type="submit" disabled={status === "loading"}>
+        {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Trophy aria-hidden="true" />}
+        כניסה ושמירת ניקוד
+      </button>
+      {message && <p className="admin-message">{message}</p>}
+    </form>
+  );
+}
+
+function LeaderboardPanel({ leaderboard }) {
+  if (!leaderboard.length) {
+    return null;
+  }
+
+  return (
+    <section className="leaderboard-panel" aria-label="דירוג שחקנים">
+      <div className="section-heading">
+        <span>
+          <p className="eyebrow">דירוג</p>
+          <h2>לוח תוצאות</h2>
+        </span>
+      </div>
+      <div className="leaderboard-list">
+        {leaderboard.slice(0, 8).map((player, index) => (
+          <div className="leaderboard-row" key={player.id}>
+            <strong>{index + 1}</strong>
+            <span>
+              <b>{player.name}</b>
+              <small>שלב: {player.level}</small>
+            </span>
+            <span>{player.points} נק'</span>
+            <span>{formatDuration(player.totalMs)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ChallengePage({
+  challenge,
+  challenges,
+  roomConfig,
+  playerSession,
+  solved,
+  onSolve,
+  onNavigate,
+  onPlayerUpdate,
+  onLeaderboardRefresh,
+}) {
   const [value, setValue] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
 
@@ -396,7 +617,10 @@ function ChallengePage({ challenge, challenges, roomConfig, solved, onSolve, onN
       const response = await postJson(API.checkAnswer, {
         id: challenge.id,
         answer: value,
-      });
+      }, playerSession.token);
+
+      onPlayerUpdate(response.player);
+      onLeaderboardRefresh();
 
       if (response.correct) {
         setResult("success");
@@ -581,7 +805,15 @@ function AnimatedLock({ state, compact = false, large = false }) {
   );
 }
 
-function FinalPage({ challenges, roomConfig, solved, onNavigate }) {
+function FinalPage({
+  challenges,
+  roomConfig,
+  playerSession,
+  solved,
+  onNavigate,
+  onPlayerUpdate,
+  onLeaderboardRefresh,
+}) {
   const [value, setValue] = useState("");
   const [result, setResult] = useState("idle");
 
@@ -590,7 +822,9 @@ function FinalPage({ challenges, roomConfig, solved, onNavigate }) {
     setResult("checking");
 
     try {
-      const response = await postJson(API.checkFinal, { code: value });
+      const response = await postJson(API.checkFinal, { code: value }, playerSession.token);
+      onPlayerUpdate(response.player);
+      onLeaderboardRefresh();
 
       if (response.correct) {
         setResult("success");
@@ -697,6 +931,11 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
   const [token, setToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [newAdminName, setNewAdminName] = useState("");
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [temporaryAdminPassword, setTemporaryAdminPassword] = useState("");
   const [status, setStatus] = useState(token ? "loading" : "idle");
   const [message, setMessage] = useState("");
 
@@ -713,8 +952,18 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
     setMessage("");
 
     try {
-      const nextConfig = await getJson(API.adminConfig, activeToken);
+      const [nextConfig, nextAnalytics] = await Promise.all([
+        getJson(API.adminConfig, activeToken),
+        getJson(API.adminAnalytics, activeToken),
+      ]);
       setConfig(nextConfig);
+      setAnalytics(nextAnalytics);
+      try {
+        const usersResponse = await getJson(API.adminUsers, activeToken);
+        setAdminUsers(usersResponse.users ?? []);
+      } catch {
+        setAdminUsers([]);
+      }
       setStatus("ready");
     } catch {
       localStorage.removeItem(ADMIN_TOKEN_KEY);
@@ -791,6 +1040,7 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
       setConfig(response.config);
       onPublicConfigChange(publicConfig);
       onResetProgress();
+      loadAdminConfig(token);
       setStatus("ready");
       setMessage("השינויים נשמרו. ההתקדמות בדפדפן הזה אופסה כדי לבדוק את ההגדרות החדשות מיד.");
     } catch {
@@ -803,8 +1053,33 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken("");
     setConfig(null);
+    setAnalytics(null);
+    setAdminUsers([]);
     setStatus("idle");
     setMessage("");
+  }
+
+  async function createAdmin(event) {
+    event.preventDefault();
+    setTemporaryAdminPassword("");
+
+    try {
+      const response = await postJson(
+        API.adminUsers,
+        {
+          name: newAdminName,
+          email: newAdminEmail,
+        },
+        token,
+      );
+      setTemporaryAdminPassword(response.temporaryPassword);
+      setNewAdminName("");
+      setNewAdminEmail("");
+      const usersResponse = await getJson(API.adminUsers, token);
+      setAdminUsers(usersResponse.users ?? []);
+    } catch {
+      setTemporaryAdminPassword("לא הצלחנו ליצור אדמין. אולי האימייל כבר קיים.");
+    }
   }
 
   if (!token || !config) {
@@ -860,6 +1135,18 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
           יציאה
         </button>
       </div>
+
+      {analytics && <AdminAnalyticsPanel analytics={analytics} />}
+
+      <AdminUsersPanel
+        adminUsers={adminUsers}
+        newAdminEmail={newAdminEmail}
+        newAdminName={newAdminName}
+        temporaryAdminPassword={temporaryAdminPassword}
+        onCreateAdmin={createAdmin}
+        onNewAdminEmailChange={setNewAdminEmail}
+        onNewAdminNameChange={setNewAdminName}
+      />
 
       <form className="admin-form" onSubmit={saveConfig}>
         <fieldset className="admin-section">
@@ -1061,6 +1348,131 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
           {message && <span className="admin-message">{message}</span>}
         </div>
       </form>
+    </section>
+  );
+}
+
+function AdminAnalyticsPanel({ analytics }) {
+  return (
+    <section className="admin-section analytics-panel">
+      <legend>נתוני משחק</legend>
+      <div className="analytics-cards">
+        <StatCard label="שחקנים" value={analytics.totals.players} />
+        <StatCard label="סיימו" value={analytics.totals.completed} />
+        <StatCard label="פעילים" value={analytics.totals.active} />
+        <StatCard label="ממוצע סיום" value={formatDuration(analytics.totals.averageFinishMs)} />
+      </div>
+
+      <div className="analytics-grid">
+        <div>
+          <h3>דירוג מובילים</h3>
+          <div className="leaderboard-list compact-list">
+            {analytics.leaderboard.slice(0, 8).map((player, index) => (
+              <div className="leaderboard-row" key={player.id}>
+                <strong>{index + 1}</strong>
+                <span>
+                  <b>{player.name}</b>
+                  <small>{player.level}</small>
+                </span>
+                <span>{player.points} נק'</span>
+                <span>{formatDuration(player.totalMs)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3>שלבים</h3>
+          <div className="analytics-list">
+            {analytics.perChallenge.map((challenge) => (
+              <div className="analytics-row" key={challenge.id}>
+                <strong>{challenge.title}</strong>
+                <span>{challenge.solvedCount} פתרו</span>
+                <span>{challenge.attempts} ניסיונות</span>
+                <span>{formatDuration(challenge.averageSolveMs)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3>שעות פעילות</h3>
+        <div className="usage-bars">
+          {analytics.usageByHour.slice(-12).map((entry) => (
+            <span key={entry.hour} title={`${entry.hour}: ${entry.count}`}>
+              <i style={{ "--height": `${Math.max(8, Math.min(100, entry.count * 14))}%` }} />
+              <small>{entry.hour.slice(-5)}</small>
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div className="stat-card">
+      <strong>{value ?? "-"}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function AdminUsersPanel({
+  adminUsers,
+  newAdminEmail,
+  newAdminName,
+  temporaryAdminPassword,
+  onCreateAdmin,
+  onNewAdminEmailChange,
+  onNewAdminNameChange,
+}) {
+  return (
+    <section className="admin-section">
+      <legend>אדמינים</legend>
+      <p className="muted">רק master יכול ליצור אדמינים. כרגע הסיסמה מוצגת כאן, לא נשלחת במייל.</p>
+      <form className="admin-inline-fields" onSubmit={onCreateAdmin}>
+        <label>
+          שם
+          <input
+            className="admin-input"
+            value={newAdminName}
+            onChange={(event) => onNewAdminNameChange(event.target.value)}
+          />
+        </label>
+        <label>
+          אימייל אדמין
+          <input
+            className="admin-input"
+            type="email"
+            value={newAdminEmail}
+            onChange={(event) => onNewAdminEmailChange(event.target.value)}
+            dir="ltr"
+          />
+        </label>
+        <button className="ghost-button" type="submit">
+          <Plus aria-hidden="true" />
+          יצירת אדמין
+        </button>
+      </form>
+      {temporaryAdminPassword && (
+        <p className="admin-message">
+          סיסמה זמנית: <span dir="ltr">{temporaryAdminPassword}</span>
+        </p>
+      )}
+      {adminUsers.length > 0 && (
+        <div className="analytics-list">
+          {adminUsers.map((user) => (
+            <div className="analytics-row" key={user.id}>
+              <strong>{user.name || user.email}</strong>
+              <span dir="ltr">{user.email}</span>
+              <span>{user.role}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
