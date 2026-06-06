@@ -737,6 +737,19 @@ h1 {
   font-weight: 900;
 }
 
+.admin-section-heading,
+.admin-challenge-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.admin-section-heading {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .admin-panel label {
   color: var(--muted);
   font-weight: 800;
@@ -767,6 +780,27 @@ h1 {
   border: 1px dashed color-mix(in srgb, var(--teal) 50%, var(--line));
   border-radius: 1rem;
   background: var(--surface-strong);
+}
+
+.admin-challenge-heading span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.admin-challenge-heading small {
+  color: var(--muted);
+  direction: ltr;
+  font-weight: 800;
+  unicode-bidi: isolate;
+}
+
+.danger-button {
+  border-color: color-mix(in srgb, var(--danger) 46%, var(--line));
+  color: var(--danger);
+}
+
+.danger-button:disabled {
+  color: var(--muted);
 }
 
 .admin-inline-fields {
@@ -1207,6 +1241,7 @@ h1 {
   }
 
   .admin-heading,
+  .admin-section-heading,
   .admin-actions {
     align-items: stretch;
     flex-direction: column;

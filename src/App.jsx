@@ -4,12 +4,14 @@ import {
   LoaderCircle,
   LogOut,
   Moon,
+  Plus,
   QrCode,
   RefreshCcw,
   Save,
   Settings,
   Sparkles,
   Sun,
+  Trash2,
   Trophy,
   X,
 } from "lucide-react";
@@ -246,6 +248,7 @@ export default function App() {
           <AdminPage
             fallbackConfig={gameConfig}
             onPublicConfigChange={(publicConfig) => setGameConfig(publicConfig)}
+            onResetProgress={resetProgress}
           />
         ) : activeChallenge ? (
           isChallengeUnlocked(challenges, activeChallenge, solved) ? (
@@ -651,7 +654,24 @@ function FinalPage({ challenges, roomConfig, solved, onNavigate }) {
   );
 }
 
-function AdminPage({ fallbackConfig, onPublicConfigChange }) {
+function getNextChallengeId(challenges) {
+  return Math.max(0, ...challenges.map((challenge) => Number(challenge.id) || 0)) + 1;
+}
+
+function createBlankChallenge(challenges) {
+  const id = getNextChallengeId(challenges);
+
+  return {
+    id,
+    path: `/q/${id}`,
+    title: `קוד ${id}`,
+    question: "",
+    answer: "",
+    reward: "",
+  };
+}
+
+function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
   const [token, setToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
@@ -718,6 +738,26 @@ function AdminPage({ fallbackConfig, onPublicConfigChange }) {
     }));
   }
 
+  function addChallenge() {
+    setConfig((current) => ({
+      ...current,
+      challenges: [...current.challenges, createBlankChallenge(current.challenges)],
+    }));
+  }
+
+  function removeChallenge(index) {
+    setConfig((current) => {
+      if (current.challenges.length <= 1) {
+        return current;
+      }
+
+      return {
+        ...current,
+        challenges: current.challenges.filter((_, challengeIndex) => challengeIndex !== index),
+      };
+    });
+  }
+
   async function saveConfig(event) {
     event.preventDefault();
     setStatus("saving");
@@ -725,10 +765,12 @@ function AdminPage({ fallbackConfig, onPublicConfigChange }) {
 
     try {
       const response = await putJson(API.adminConfig, config, token);
+      const publicConfig = response.publicConfig ?? (await getJson(`${API.publicConfig}?ts=${Date.now()}`));
       setConfig(response.config);
-      onPublicConfigChange(response.publicConfig);
+      onPublicConfigChange(publicConfig);
+      onResetProgress();
       setStatus("ready");
-      setMessage("השינויים נשמרו.");
+      setMessage("השינויים נשמרו. ההתקדמות בדפדפן הזה אופסה כדי לבדוק את ההגדרות החדשות מיד.");
     } catch {
       setStatus("ready");
       setMessage("השמירה נכשלה. נסה שוב.");
@@ -836,11 +878,33 @@ function AdminPage({ fallbackConfig, onPublicConfigChange }) {
         </fieldset>
 
         <fieldset className="admin-section">
-          <legend>שלבי QR</legend>
+          <legend>שלבים</legend>
+          <div className="admin-section-heading">
+            <span>אפשר להוסיף או להסיר שלבים. שלב חדש מקבל כתובת חדשה אוטומטית.</span>
+            <button className="ghost-button" type="button" onClick={addChallenge}>
+              <Plus aria-hidden="true" />
+              הוספת שלב
+            </button>
+          </div>
           <div className="admin-challenges">
             {config.challenges.map((challenge, index) => (
               <div className="admin-challenge" key={challenge.id}>
-                <strong>שלב {challenge.id}</strong>
+                <div className="admin-challenge-heading">
+                  <span>
+                    <strong>שלב {challenge.id}</strong>
+                    <small>{challenge.path}</small>
+                  </span>
+                  <button
+                    className="icon-button danger-button"
+                    type="button"
+                    onClick={() => removeChallenge(index)}
+                    disabled={config.challenges.length <= 1}
+                    aria-label={`מחיקת שלב ${challenge.id}`}
+                    title={`מחיקת שלב ${challenge.id}`}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </div>
                 <label>
                   כותרת
                   <input
