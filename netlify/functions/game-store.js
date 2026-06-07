@@ -26,6 +26,8 @@ const defaultGameConfig = {
     finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
     finalSuccessButtonLabel: "חזרה לשלבים",
     finalCode: "חופשה נעימה",
+    questionPoints: 10,
+    finalBonusPoints: 50,
   },
   challenges: [
     { id: 1, path: "/q/1", title: "קוד 1", question: "", answer: "1", reward: "חו" },
@@ -73,6 +75,11 @@ export function readJsonBody(event) {
 
 function cleanString(value, fallback = "") {
   return String(value ?? fallback);
+}
+
+function cleanNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function sanitizeChallenge(challenge, index) {
@@ -130,6 +137,8 @@ export function sanitizeGameConfig(config) {
         defaultGameConfig.roomConfig.finalSuccessButtonLabel,
       ),
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
+      questionPoints: cleanNumber(sourceRoomConfig.questionPoints, defaultGameConfig.roomConfig.questionPoints),
+      finalBonusPoints: cleanNumber(sourceRoomConfig.finalBonusPoints, defaultGameConfig.roomConfig.finalBonusPoints),
     },
     challenges: sourceChallenges.map(sanitizeChallenge),
   };
@@ -150,6 +159,8 @@ export function toPublicConfig(config) {
       finalSuccessTitle: safeConfig.roomConfig.finalSuccessTitle,
       finalSuccessMessage: safeConfig.roomConfig.finalSuccessMessage,
       finalSuccessButtonLabel: safeConfig.roomConfig.finalSuccessButtonLabel,
+      questionPoints: safeConfig.roomConfig.questionPoints,
+      finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
     },
     challenges: safeConfig.challenges.map(({ answer, ...challenge }) => challenge),
   };
@@ -766,7 +777,9 @@ function summarizePlayer(player, config) {
   const totalMs = completed
     ? msBetween(player.createdAt, finalSolvedAt)
     : msBetween(player.createdAt, player.lastSeenAt);
-  const points = solvedChallenges.length * 100 + (completed ? 250 : 0) - wrongAttempts * 5;
+  const questionPoints = Math.max(0, cleanNumber(config.roomConfig.questionPoints, 10));
+  const finalBonusPoints = Math.max(0, cleanNumber(config.roomConfig.finalBonusPoints, 50));
+  const points = solvedChallenges.length * questionPoints + (completed ? finalBonusPoints : 0) - wrongAttempts * 5;
 
   return {
     id: player.id,

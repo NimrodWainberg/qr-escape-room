@@ -119,6 +119,7 @@ button:disabled {
 .brand-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.65rem;
   min-height: 3rem;
   padding-block: 0.55rem;
@@ -954,6 +955,37 @@ h1 {
   margin-block-end: 1.3rem;
 }
 
+.admin-tabs {
+  display: flex;
+  gap: 0.55rem;
+  margin-block-end: 1rem;
+  padding: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-strong) 72%, transparent);
+}
+
+.admin-tabs button {
+  flex: 1;
+  min-height: 2.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 900;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-tabs button.is-active {
+  background: linear-gradient(135deg, var(--teal), var(--violet));
+  color: white;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--teal) 20%, transparent);
+}
+
 .admin-form,
 .admin-section,
 .admin-challenge,
@@ -1607,6 +1639,11 @@ h1 {
   .admin-section-heading,
   .admin-actions {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-tabs {
+    border-radius: 1rem;
     flex-direction: column;
   }
 

@@ -9,6 +9,8 @@ export const roomConfig = {
   finalSuccessTitle: "חופשה נעימה!",
   finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
   finalSuccessButtonLabel: "חזרה לשלבים",
+  questionPoints: 10,
+  finalBonusPoints: 50,
 };
 
 export const challenges = [

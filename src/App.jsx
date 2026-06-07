@@ -1202,6 +1202,7 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [activeAdminTab, setActiveAdminTab] = useState("game");
   const [adminUsers, setAdminUsers] = useState([]);
   const [newAdminName, setNewAdminName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -1411,7 +1412,7 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
           </span>
           <div>
             <p className="eyebrow">ניהול המשחק</p>
-            <h1>עריכת קודים</h1>
+            <h1>פאנל ניהול</h1>
           </div>
         </div>
         <button className="ghost-button" type="button" onClick={logout}>
@@ -1420,219 +1421,301 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
         </button>
       </div>
 
-      {analytics && <AdminAnalyticsPanel analytics={analytics} />}
+      <div className="admin-tabs" role="tablist" aria-label="אזורי ניהול">
+        <button
+          className={activeAdminTab === "game" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeAdminTab === "game"}
+          onClick={() => setActiveAdminTab("game")}
+        >
+          משחק
+        </button>
+        <button
+          className={activeAdminTab === "users" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeAdminTab === "users"}
+          onClick={() => setActiveAdminTab("users")}
+        >
+          משתמשים
+        </button>
+        <button
+          className={activeAdminTab === "analytics" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeAdminTab === "analytics"}
+          onClick={() => setActiveAdminTab("analytics")}
+        >
+          נתונים
+        </button>
+      </div>
 
-      <AdminUsersPanel
-        adminUsers={adminUsers}
-        newAdminEmail={newAdminEmail}
-        newAdminName={newAdminName}
-        temporaryAdminPassword={temporaryAdminPassword}
-        onCreateAdmin={createAdmin}
-        onNewAdminEmailChange={setNewAdminEmail}
-        onNewAdminNameChange={setNewAdminName}
-      />
+      {activeAdminTab === "analytics" && analytics && <AdminAnalyticsPanel analytics={analytics} />}
 
-      <form className="admin-form" onSubmit={saveConfig}>
-        <fieldset className="admin-section">
-          <legend>הגדרות כלליות</legend>
+      {activeAdminTab === "users" && (
+        <AdminUsersPanel
+          adminUsers={adminUsers}
+          newAdminEmail={newAdminEmail}
+          newAdminName={newAdminName}
+          temporaryAdminPassword={temporaryAdminPassword}
+          onCreateAdmin={createAdmin}
+          onNewAdminEmailChange={setNewAdminEmail}
+          onNewAdminNameChange={setNewAdminName}
+        />
+      )}
+
+      {activeAdminTab === "game" && (
+        <AdminGameForm
+          config={config}
+          message={message}
+          status={status}
+          onAddChallenge={addChallenge}
+          onRemoveChallenge={removeChallenge}
+          onSaveConfig={saveConfig}
+          onUpdateChallenge={updateChallenge}
+          onUpdateRoomConfig={updateRoomConfig}
+        />
+      )}
+    </section>
+  );
+}
+
+function AdminGameForm({
+  config,
+  message,
+  status,
+  onAddChallenge,
+  onRemoveChallenge,
+  onSaveConfig,
+  onUpdateChallenge,
+  onUpdateRoomConfig,
+}) {
+  return (
+    <form className="admin-form" onSubmit={onSaveConfig}>
+      <fieldset className="admin-section">
+        <legend>הגדרות כלליות</legend>
+        <label>
+          שם המשחק
+          <input
+            className="admin-input"
+            value={config.roomConfig.title}
+            onChange={(event) => onUpdateRoomConfig("title", event.target.value)}
+          />
+        </label>
+        <label>
+          טקסט פתיחה
+          <textarea
+            className="admin-textarea"
+            value={config.roomConfig.subtitle}
+            onChange={(event) => onUpdateRoomConfig("subtitle", event.target.value)}
+          />
+        </label>
+        <label>
+          טקסט לפני הקוד הסופי
+          <textarea
+            className="admin-textarea"
+            value={config.roomConfig.finalPrompt}
+            onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)}
+          />
+        </label>
+        <div className="admin-inline-fields">
           <label>
-            שם המשחק
+            ניקוד לכל שאלה
             <input
               className="admin-input"
-              value={config.roomConfig.title}
-              onChange={(event) => updateRoomConfig("title", event.target.value)}
+              type="number"
+              min="0"
+              step="1"
+              value={config.roomConfig.questionPoints}
+              onChange={(event) => onUpdateRoomConfig("questionPoints", event.target.value)}
             />
           </label>
           <label>
-            טקסט פתיחה
-            <textarea
-              className="admin-textarea"
-              value={config.roomConfig.subtitle}
-              onChange={(event) => updateRoomConfig("subtitle", event.target.value)}
-            />
-          </label>
-          <label>
-            טקסט לפני הקוד הסופי
-            <textarea
-              className="admin-textarea"
-              value={config.roomConfig.finalPrompt}
-              onChange={(event) => updateRoomConfig("finalPrompt", event.target.value)}
-            />
-          </label>
-          <div className="admin-inline-fields">
-            <label>
-              הודעת הצלחה ברירת מחדל
-              <textarea
-                className="admin-textarea compact-textarea"
-                value={config.roomConfig.defaultSuccessMessage}
-                onChange={(event) => updateRoomConfig("defaultSuccessMessage", event.target.value)}
-                placeholder="תופיע אם לשלב אין הודעת הצלחה משלו"
-              />
-            </label>
-            <label>
-              הודעת שגיאה ברירת מחדל
-              <textarea
-                className="admin-textarea compact-textarea"
-                value={config.roomConfig.defaultErrorMessage}
-                onChange={(event) => updateRoomConfig("defaultErrorMessage", event.target.value)}
-                placeholder="תופיע אם לשלב אין הודעת שגיאה משלו"
-              />
-            </label>
-          </div>
-          <label>
-            פתרון סופי
+            בונוס לקוד הסופי
             <input
               className="admin-input"
-              value={config.roomConfig.finalCode}
-              onChange={(event) => updateRoomConfig("finalCode", event.target.value)}
-              dir="auto"
+              type="number"
+              min="0"
+              step="1"
+              value={config.roomConfig.finalBonusPoints}
+              onChange={(event) => onUpdateRoomConfig("finalBonusPoints", event.target.value)}
             />
           </label>
+        </div>
+        <div className="admin-inline-fields">
           <label>
-            הודעת שגיאה בקוד הסופי
+            הודעת הצלחה ברירת מחדל
             <textarea
               className="admin-textarea compact-textarea"
-              value={config.roomConfig.finalErrorMessage}
-              onChange={(event) => updateRoomConfig("finalErrorMessage", event.target.value)}
-            />
-          </label>
-        </fieldset>
-
-        <fieldset className="admin-section">
-          <legend>מסך סיום</legend>
-          <label>
-            כותרת קטנה
-            <input
-              className="admin-input"
-              value={config.roomConfig.finalSuccessEyebrow}
-              onChange={(event) => updateRoomConfig("finalSuccessEyebrow", event.target.value)}
+              value={config.roomConfig.defaultSuccessMessage}
+              onChange={(event) => onUpdateRoomConfig("defaultSuccessMessage", event.target.value)}
+              placeholder="תופיע אם לשלב אין הודעת הצלחה משלו"
             />
           </label>
           <label>
-            כותרת גדולה
-            <input
-              className="admin-input"
-              value={config.roomConfig.finalSuccessTitle}
-              onChange={(event) => updateRoomConfig("finalSuccessTitle", event.target.value)}
-            />
-          </label>
-          <label>
-            הודעה במסך הסיום
+            הודעת שגיאה ברירת מחדל
             <textarea
               className="admin-textarea compact-textarea"
-              value={config.roomConfig.finalSuccessMessage}
-              onChange={(event) => updateRoomConfig("finalSuccessMessage", event.target.value)}
+              value={config.roomConfig.defaultErrorMessage}
+              onChange={(event) => onUpdateRoomConfig("defaultErrorMessage", event.target.value)}
+              placeholder="תופיע אם לשלב אין הודעת שגיאה משלו"
             />
           </label>
-          <label>
-            טקסט כפתור במסך הסיום
-            <input
-              className="admin-input"
-              value={config.roomConfig.finalSuccessButtonLabel}
-              onChange={(event) => updateRoomConfig("finalSuccessButtonLabel", event.target.value)}
-            />
-          </label>
-        </fieldset>
+        </div>
+        <label>
+          פתרון סופי
+          <input
+            className="admin-input"
+            value={config.roomConfig.finalCode}
+            onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)}
+            dir="auto"
+          />
+        </label>
+        <label>
+          הודעת שגיאה בקוד הסופי
+          <textarea
+            className="admin-textarea compact-textarea"
+            value={config.roomConfig.finalErrorMessage}
+            onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)}
+          />
+        </label>
+      </fieldset>
 
-        <fieldset className="admin-section">
-          <legend>שלבים</legend>
-          <div className="admin-section-heading">
-            <span>אפשר להוסיף או להסיר שלבים. שלב חדש מקבל כתובת חדשה אוטומטית.</span>
-            <button className="ghost-button" type="button" onClick={addChallenge}>
-              <Plus aria-hidden="true" />
-              הוספת שלב
-            </button>
-          </div>
-          <div className="admin-challenges">
-            {config.challenges.map((challenge, index) => (
-              <div className="admin-challenge" key={challenge.id}>
-                <div className="admin-challenge-heading">
-                  <span>
-                    <strong>שלב {challenge.id}</strong>
-                    <small>{challenge.path}</small>
-                  </span>
-                  <button
-                    className="icon-button danger-button"
-                    type="button"
-                    onClick={() => removeChallenge(index)}
-                    disabled={config.challenges.length <= 1}
-                    aria-label={`מחיקת שלב ${challenge.id}`}
-                    title={`מחיקת שלב ${challenge.id}`}
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </button>
-                </div>
+      <fieldset className="admin-section">
+        <legend>מסך סיום</legend>
+        <label>
+          כותרת קטנה
+          <input
+            className="admin-input"
+            value={config.roomConfig.finalSuccessEyebrow}
+            onChange={(event) => onUpdateRoomConfig("finalSuccessEyebrow", event.target.value)}
+          />
+        </label>
+        <label>
+          כותרת גדולה
+          <input
+            className="admin-input"
+            value={config.roomConfig.finalSuccessTitle}
+            onChange={(event) => onUpdateRoomConfig("finalSuccessTitle", event.target.value)}
+          />
+        </label>
+        <label>
+          הודעה במסך הסיום
+          <textarea
+            className="admin-textarea compact-textarea"
+            value={config.roomConfig.finalSuccessMessage}
+            onChange={(event) => onUpdateRoomConfig("finalSuccessMessage", event.target.value)}
+          />
+        </label>
+        <label>
+          טקסט כפתור במסך הסיום
+          <input
+            className="admin-input"
+            value={config.roomConfig.finalSuccessButtonLabel}
+            onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)}
+          />
+        </label>
+      </fieldset>
+
+      <fieldset className="admin-section">
+        <legend>שלבים</legend>
+        <div className="admin-section-heading">
+          <span>אפשר להוסיף או להסיר שלבים. שלב חדש מקבל כתובת חדשה אוטומטית.</span>
+          <button className="ghost-button" type="button" onClick={onAddChallenge}>
+            <Plus aria-hidden="true" />
+            הוספת שלב
+          </button>
+        </div>
+        <div className="admin-challenges">
+          {config.challenges.map((challenge, index) => (
+            <div className="admin-challenge" key={challenge.id}>
+              <div className="admin-challenge-heading">
+                <span>
+                  <strong>שלב {challenge.id}</strong>
+                  <small>{challenge.path}</small>
+                </span>
+                <button
+                  className="icon-button danger-button"
+                  type="button"
+                  onClick={() => onRemoveChallenge(index)}
+                  disabled={config.challenges.length <= 1}
+                  aria-label={`מחיקת שלב ${challenge.id}`}
+                  title={`מחיקת שלב ${challenge.id}`}
+                >
+                  <Trash2 aria-hidden="true" />
+                </button>
+              </div>
+              <label>
+                כותרת
+                <input
+                  className="admin-input"
+                  value={challenge.title}
+                  onChange={(event) => onUpdateChallenge(index, "title", event.target.value)}
+                />
+              </label>
+              <label>
+                שאלה באתר
+                <textarea
+                  className="admin-textarea"
+                  value={challenge.question}
+                  onChange={(event) => onUpdateChallenge(index, "question", event.target.value)}
+                  placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
+                />
+              </label>
+              <div className="admin-inline-fields">
                 <label>
-                  כותרת
+                  הודעת הצלחה לשלב
+                  <textarea
+                    className="admin-textarea compact-textarea"
+                    value={challenge.successMessage}
+                    onChange={(event) => onUpdateChallenge(index, "successMessage", event.target.value)}
+                    placeholder="ריק = הודעת הצלחה ברירת מחדל"
+                  />
+                </label>
+                <label>
+                  הודעת שגיאה לשלב
+                  <textarea
+                    className="admin-textarea compact-textarea"
+                    value={challenge.errorMessage}
+                    onChange={(event) => onUpdateChallenge(index, "errorMessage", event.target.value)}
+                    placeholder="ריק = הודעת שגיאה ברירת מחדל"
+                  />
+                </label>
+              </div>
+              <div className="admin-inline-fields">
+                <label>
+                  תשובה
                   <input
                     className="admin-input"
-                    value={challenge.title}
-                    onChange={(event) => updateChallenge(index, "title", event.target.value)}
+                    value={challenge.answer}
+                    onChange={(event) => onUpdateChallenge(index, "answer", event.target.value)}
+                    dir="auto"
                   />
                 </label>
                 <label>
-                  שאלה באתר
-                  <textarea
-                    className="admin-textarea"
-                    value={challenge.question}
-                    onChange={(event) => updateChallenge(index, "question", event.target.value)}
-                    placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
+                  חלק בקוד הסופי
+                  <input
+                    className="admin-input"
+                    value={challenge.reward}
+                    onChange={(event) => onUpdateChallenge(index, "reward", event.target.value)}
+                    dir="auto"
                   />
                 </label>
-                <div className="admin-inline-fields">
-                  <label>
-                    הודעת הצלחה לשלב
-                    <textarea
-                      className="admin-textarea compact-textarea"
-                      value={challenge.successMessage}
-                      onChange={(event) => updateChallenge(index, "successMessage", event.target.value)}
-                      placeholder="ריק = הודעת הצלחה ברירת מחדל"
-                    />
-                  </label>
-                  <label>
-                    הודעת שגיאה לשלב
-                    <textarea
-                      className="admin-textarea compact-textarea"
-                      value={challenge.errorMessage}
-                      onChange={(event) => updateChallenge(index, "errorMessage", event.target.value)}
-                      placeholder="ריק = הודעת שגיאה ברירת מחדל"
-                    />
-                  </label>
-                </div>
-                <div className="admin-inline-fields">
-                  <label>
-                    תשובה
-                    <input
-                      className="admin-input"
-                      value={challenge.answer}
-                      onChange={(event) => updateChallenge(index, "answer", event.target.value)}
-                      dir="auto"
-                    />
-                  </label>
-                  <label>
-                    חלק בקוד הסופי
-                    <input
-                      className="admin-input"
-                      value={challenge.reward}
-                      onChange={(event) => updateChallenge(index, "reward", event.target.value)}
-                      dir="auto"
-                    />
-                  </label>
-                </div>
               </div>
-            ))}
-          </div>
-        </fieldset>
-
-        <div className="admin-actions">
-          <button className="primary-button" type="submit" disabled={status === "saving"}>
-            {status === "saving" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Save aria-hidden="true" />}
-            {status === "saving" ? "שומר..." : "שמירה"}
-          </button>
-          {message && <span className="admin-message">{message}</span>}
+            </div>
+          ))}
         </div>
-      </form>
-    </section>
+      </fieldset>
+
+      <div className="admin-actions">
+        <button className="primary-button" type="submit" disabled={status === "saving"}>
+          {status === "saving" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Save aria-hidden="true" />}
+          {status === "saving" ? "שומר..." : "שמירה"}
+        </button>
+        {message && <span className="admin-message">{message}</span>}
+      </div>
+    </form>
   );
 }
 
