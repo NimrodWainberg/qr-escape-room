@@ -1,4 +1,11 @@
-import { initBlobContext, jsonResponse, methodNotAllowed, readJsonBody, verifyPlayerOtp } from "./game-store.js";
+import {
+  getGameIdFromEvent,
+  initBlobContext,
+  jsonResponse,
+  methodNotAllowed,
+  readJsonBody,
+  verifyPlayerOtp,
+} from "./game-store.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -17,6 +24,7 @@ export const handler = async (event) => {
       name: body.name,
       email: body.email,
       code: body.code,
+      gameId: getGameIdFromEvent(event, body),
     });
 
     return jsonResponse(200, session);

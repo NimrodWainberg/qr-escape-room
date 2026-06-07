@@ -1,5 +1,6 @@
 import {
   getGameConfig,
+  getGameIdFromEvent,
   initBlobContext,
   jsonResponse,
   methodNotAllowed,
@@ -20,9 +21,10 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  const config = await getGameConfig();
+  const gameId = getGameIdFromEvent(event, body);
+  const config = await getGameConfig(gameId);
   const correct = normalizeCode(body.code) === normalizeCode(config.roomConfig.finalCode);
-  const player = await recordFinalAttempt(event, correct);
+  const player = await recordFinalAttempt(event, correct, gameId);
 
   return jsonResponse(200, { correct, player });
 };

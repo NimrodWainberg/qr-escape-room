@@ -25,20 +25,66 @@ const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
 const ADMIN_TOKEN_KEY = "qr-escape-room-admin-token-v1";
 const PLAYER_SESSION_KEY = "qr-escape-room-player-session-v1";
+const DEFAULT_GAME_ID = "main";
 
 const API = {
   publicConfig: "/.netlify/functions/public-config",
+  publicGames: "/.netlify/functions/public-games",
   checkAnswer: "/.netlify/functions/check-answer",
   checkFinal: "/.netlify/functions/check-final",
   adminLogin: "/.netlify/functions/admin-login",
   adminConfig: "/.netlify/functions/admin-config",
   adminAnalytics: "/.netlify/functions/admin-analytics",
+  adminGames: "/.netlify/functions/admin-games",
   adminUsers: "/.netlify/functions/admin-users",
   leaderboard: "/.netlify/functions/leaderboard",
   playerLogin: "/.netlify/functions/player-login",
   requestPlayerOtp: "/.netlify/functions/request-player-otp",
   verifyPlayerOtp: "/.netlify/functions/verify-player-otp",
 };
+
+function normalizeGameId(value) {
+  const slug = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+  return slug || DEFAULT_GAME_ID;
+}
+
+function getRouteInfo(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+
+  if (parts[0] === "g" && parts[1]) {
+    return {
+      gameId: normalizeGameId(parts[1]),
+      gamePath: `/${parts.slice(2).join("/")}` || "/",
+    };
+  }
+
+  return { gameId: DEFAULT_GAME_ID, gamePath: pathname || "/" };
+}
+
+function buildPath(gameId, gamePath) {
+  const cleanGamePath = gamePath.startsWith("/") ? gamePath : `/${gamePath}`;
+  return normalizeGameId(gameId) === DEFAULT_GAME_ID ? cleanGamePath : `/g/${normalizeGameId(gameId)}${cleanGamePath}`;
+}
+
+function buildDirectGamePath(gameId, gamePath = "/") {
+  const cleanGamePath = gamePath.startsWith("/") ? gamePath : `/${gamePath}`;
+  return `/g/${normalizeGameId(gameId)}${cleanGamePath}`;
+}
+
+function withGame(url, gameId) {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}gameId=${encodeURIComponent(normalizeGameId(gameId))}`;
+}
+
+function storageKeyForGame(baseKey, gameId) {
+  return normalizeGameId(gameId) === DEFAULT_GAME_ID ? baseKey : `${baseKey}:${normalizeGameId(gameId)}`;
+}
 
 function isChallengeSolved(challenge, solved) {
   return Boolean(solved[challenge.id]);
@@ -114,6 +160,27 @@ async function putJson(url, body, token) {
   return response.json();
 }
 
+async function deleteJson(url, body, token) {
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const error = new Error(data?.error ?? `Request failed: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+
+  return data;
+}
+
 async function getJson(url, token) {
   const response = await fetch(url, {
     headers: token ? { authorization: `Bearer ${token}` } : undefined,
@@ -126,9 +193,9 @@ async function getJson(url, token) {
   return response.json();
 }
 
-function readSolved() {
+function readSolved(gameId = DEFAULT_GAME_ID) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
+    return JSON.parse(localStorage.getItem(storageKeyForGame(STORAGE_KEY, gameId))) ?? {};
   } catch {
     return {};
   }
@@ -142,9 +209,9 @@ function readTheme() {
   return localStorage.getItem(THEME_KEY) ?? "light";
 }
 
-function readPlayerSession() {
+function readPlayerSession(gameId = DEFAULT_GAME_ID) {
   try {
-    return JSON.parse(localStorage.getItem(PLAYER_SESSION_KEY)) ?? null;
+    return JSON.parse(localStorage.getItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId))) ?? null;
   } catch {
     return null;
   }
@@ -168,11 +235,13 @@ function formatDuration(milliseconds) {
 }
 
 export default function App() {
-  const [path, setPath] = useState(window.location.pathname);
-  const [solved, setSolved] = useState(readSolved);
+  const [routeInfo, setRouteInfo] = useState(() => getRouteInfo(window.location.pathname));
+  const { gameId, gamePath: path } = routeInfo;
+  const [solved, setSolved] = useState(() => readSolved(gameId));
   const [theme, setTheme] = useState(readTheme);
-  const [playerSession, setPlayerSession] = useState(readPlayerSession);
+  const [playerSession, setPlayerSession] = useState(() => readPlayerSession(gameId));
   const [leaderboard, setLeaderboard] = useState([]);
+  const [publicGames, setPublicGames] = useState([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
@@ -180,7 +249,7 @@ export default function App() {
   const { roomConfig, challenges } = gameConfig;
 
   useEffect(() => {
-    const onPopState = () => setPath(window.location.pathname);
+    const onPopState = () => setRouteInfo(getRouteInfo(window.location.pathname));
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -195,7 +264,7 @@ export default function App() {
 
     async function loadPublicConfig() {
       try {
-        const nextConfig = await getJson(API.publicConfig);
+        const nextConfig = await getJson(withGame(API.publicConfig, gameId));
 
         if (!cancelled) {
           setGameConfig(nextConfig);
@@ -213,19 +282,29 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [gameId]);
 
   useEffect(() => {
     loadLeaderboard();
+  }, [gameId]);
+
+  useEffect(() => {
+    loadPublicGames();
   }, []);
 
   useEffect(() => {
-    if (path === "/admin") {
+    setSolved(readSolved(gameId));
+    setPlayerSession(readPlayerSession(gameId));
+  }, [gameId]);
+
+  useEffect(() => {
+    if (path === "/admin" || (gameId === DEFAULT_GAME_ID && path === "/")) {
+      setShowLoginModal(false);
       return;
     }
 
     setShowLoginModal(!playerSession);
-  }, [path, playerSession]);
+  }, [gameId, path, playerSession]);
 
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
@@ -235,48 +314,64 @@ export default function App() {
   const solvedCount = challenges.filter((challenge) => solved[challenge.id]).length;
 
   function navigate(nextPath) {
-    window.history.pushState({}, "", nextPath);
-    setPath(nextPath);
+    window.history.pushState({}, "", buildPath(gameId, nextPath));
+    setRouteInfo({ gameId, gamePath: nextPath });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function navigateToGame(nextGameId, nextPath = "/") {
+    const nextId = normalizeGameId(nextGameId);
+    window.history.pushState({}, "", buildDirectGamePath(nextId, nextPath));
+    setRouteInfo({ gameId: nextId, gamePath: nextPath });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function markSolved(challengeId) {
     setSolved((current) => {
       const next = { ...current, [challengeId]: true };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKeyForGame(STORAGE_KEY, gameId), JSON.stringify(next));
       return next;
     });
   }
 
   function resetProgress() {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKeyForGame(STORAGE_KEY, gameId));
     setSolved({});
   }
 
   async function loadLeaderboard() {
     try {
-      const response = await getJson(API.leaderboard);
+      const response = await getJson(withGame(API.leaderboard, gameId));
       setLeaderboard(response.leaderboard ?? []);
     } catch {
       setLeaderboard([]);
     }
   }
 
+  async function loadPublicGames() {
+    try {
+      const response = await getJson(API.publicGames);
+      setPublicGames(response.games ?? []);
+    } catch {
+      setPublicGames([]);
+    }
+  }
+
   async function loginPlayer(credentials) {
-    const session = await postJson(API.playerLogin, credentials);
-    localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(session));
+    const session = await postJson(API.playerLogin, { ...credentials, gameId });
+    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(session));
     setPlayerSession(session);
     setShowLoginModal(false);
     await loadLeaderboard();
   }
 
   async function requestPlayerOtp(credentials) {
-    return postJson(API.requestPlayerOtp, credentials);
+    return postJson(API.requestPlayerOtp, { ...credentials, gameId });
   }
 
   async function verifyPlayerOtp(credentials) {
-    const session = await postJson(API.verifyPlayerOtp, credentials);
-    localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(session));
+    const session = await postJson(API.verifyPlayerOtp, { ...credentials, gameId });
+    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(session));
     setPlayerSession(session);
     setShowLoginModal(false);
     await loadLeaderboard();
@@ -288,13 +383,13 @@ export default function App() {
     }
 
     const nextSession = { ...playerSession, player };
-    localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(nextSession));
+    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(nextSession));
     setPlayerSession(nextSession);
   }
 
   function logoutPlayer() {
-    localStorage.removeItem(PLAYER_SESSION_KEY);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId));
+    localStorage.removeItem(storageKeyForGame(STORAGE_KEY, gameId));
     setPlayerSession(null);
     setSolved({});
   }
@@ -380,8 +475,21 @@ export default function App() {
         {path === "/admin" ? (
           <AdminPage
             fallbackConfig={gameConfig}
+            gameId={gameId}
+            onGameChange={(nextGameId) => {
+              const nextId = normalizeGameId(nextGameId);
+              window.history.pushState({}, "", buildDirectGamePath(nextId, "/admin"));
+              setRouteInfo({ gameId: nextId, gamePath: "/admin" });
+            }}
             onPublicConfigChange={(publicConfig) => setGameConfig(publicConfig)}
             onResetProgress={resetProgress}
+            onPublicGamesRefresh={loadPublicGames}
+          />
+        ) : gameId === DEFAULT_GAME_ID && path === "/" ? (
+          <GamesDirectoryPage
+            games={publicGames}
+            roomConfig={roomConfig}
+            onNavigateToGame={navigateToGame}
           />
         ) : activeChallenge ? (
           !playerSession ? (
@@ -400,6 +508,7 @@ export default function App() {
             <ChallengePage
               challenge={activeChallenge}
               challenges={challenges}
+              gameId={gameId}
               roomConfig={roomConfig}
               playerSession={playerSession}
               solved={isChallengeSolved(activeChallenge, solved)}
@@ -432,6 +541,7 @@ export default function App() {
           ) : areAllChallengesSolved(challenges, solved) ? (
             <FinalPage
               challenges={challenges}
+              gameId={gameId}
               roomConfig={roomConfig}
               playerSession={playerSession}
               solved={solved}
@@ -478,6 +588,40 @@ export default function App() {
         </Modal>
       )}
     </div>
+  );
+}
+
+function GamesDirectoryPage({ games, roomConfig, onNavigateToGame }) {
+  return (
+    <section className="hero-section games-directory">
+      <div className="hero-copy">
+        <p className="eyebrow">בחרו משחק</p>
+        <h1>{roomConfig.title || "חדר בריחה"}</h1>
+        <p>בחרו חדר והתחילו לפתור את הקודים.</p>
+      </div>
+
+      {games.length > 0 ? (
+        <div className="game-picker-grid">
+          {games.map((game) => (
+            <button className="game-picker-card" key={game.id} type="button" onClick={() => onNavigateToGame(game.id)}>
+              <span className="round-badge">
+                <QrCode aria-hidden="true" />
+              </span>
+              <span>
+                <strong>{game.title}</strong>
+                <small dir="ltr">{`/g/${game.id}`}</small>
+              </span>
+              <Sparkles aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-game-state">
+          <strong>עדיין אין משחקים פעילים.</strong>
+          <span>אדמין יכול ליצור משחק חדש בפאנל הניהול.</span>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -862,6 +1006,7 @@ function Modal({ children, title, wide = false, locked = false, onClose }) {
 function ChallengePage({
   challenge,
   challenges,
+  gameId,
   roomConfig,
   playerSession,
   solved,
@@ -886,6 +1031,7 @@ function ChallengePage({
       const response = await postJson(API.checkAnswer, {
         id: challenge.id,
         answer: value,
+        gameId,
       }, playerSession.token);
 
       onPlayerUpdate(response.player);
@@ -1076,6 +1222,7 @@ function AnimatedLock({ state, compact = false, large = false }) {
 
 function FinalPage({
   challenges,
+  gameId,
   roomConfig,
   playerSession,
   solved,
@@ -1091,7 +1238,7 @@ function FinalPage({
     setResult("checking");
 
     try {
-      const response = await postJson(API.checkFinal, { code: value }, playerSession.token);
+      const response = await postJson(API.checkFinal, { code: value, gameId }, playerSession.token);
       onPlayerUpdate(response.player);
       onLeaderboardRefresh();
 
@@ -1198,13 +1345,23 @@ function createBlankChallenge(challenges) {
   };
 }
 
-function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
+function AdminPage({
+  fallbackConfig,
+  gameId,
+  onGameChange,
+  onPublicConfigChange,
+  onPublicGamesRefresh,
+  onResetProgress,
+}) {
   const [token, setToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
   const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  const [activeAdminTab, setActiveAdminTab] = useState("game");
+  const [activeAdminTab, setActiveAdminTab] = useState("games");
+  const [games, setGames] = useState([]);
+  const [newGameTitle, setNewGameTitle] = useState("");
+  const [newGameId, setNewGameId] = useState("");
   const [adminUsers, setAdminUsers] = useState([]);
   const [newAdminName, setNewAdminName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -1218,7 +1375,7 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
     }
 
     loadAdminConfig(token);
-  }, [token]);
+  }, [token, gameId]);
 
   async function loadAdminConfig(activeToken) {
     setStatus("loading");
@@ -1226,14 +1383,18 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
 
     try {
       const [nextConfig, nextAnalytics] = await Promise.all([
-        getJson(API.adminConfig, activeToken),
-        getJson(API.adminAnalytics, activeToken),
+        getJson(withGame(API.adminConfig, gameId), activeToken),
+        getJson(withGame(API.adminAnalytics, gameId), activeToken),
       ]);
       setConfig(nextConfig);
       setAnalytics(nextAnalytics);
       try {
-        const usersResponse = await getJson(API.adminUsers, activeToken);
+        const [usersResponse, gamesResponse] = await Promise.all([
+          getJson(API.adminUsers, activeToken),
+          getJson(API.adminGames, activeToken),
+        ]);
         setAdminUsers(usersResponse.users ?? []);
+        setGames(gamesResponse.games ?? []);
       } catch {
         setAdminUsers([]);
       }
@@ -1312,10 +1473,12 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
     setMessage("");
 
     try {
-      const response = await putJson(API.adminConfig, config, token);
-      const publicConfig = response.publicConfig ?? (await getJson(`${API.publicConfig}?ts=${Date.now()}`));
+      const response = await putJson(withGame(API.adminConfig, gameId), config, token);
+      const publicConfig =
+        response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId)));
       setConfig(response.config);
       onPublicConfigChange(publicConfig);
+      onPublicGamesRefresh();
       onResetProgress();
       loadAdminConfig(token);
       setStatus("ready");
@@ -1326,12 +1489,60 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
     }
   }
 
+  async function createNewGame(event) {
+    event.preventDefault();
+    setMessage("");
+
+    try {
+      const response = await postJson(
+        API.adminGames,
+        {
+          id: newGameId,
+          title: newGameTitle,
+          sourceGameId: gameId,
+        },
+        token,
+      );
+      const gamesResponse = await getJson(API.adminGames, token);
+      setGames(gamesResponse.games ?? []);
+      setNewGameTitle("");
+      setNewGameId("");
+      onGameChange(response.game.id);
+      onPublicGamesRefresh();
+      setMessage("המשחק החדש נוצר. אפשר לערוך לו שאלות, קודים וניקוד בטאב משחק.");
+    } catch {
+      setMessage("לא הצלחנו ליצור משחק. בדוק שהשם/כתובת לא קיימים כבר.");
+    }
+  }
+
+  async function deleteExistingGame(targetGameId) {
+    const cleanGameId = normalizeGameId(targetGameId);
+
+    if (!window.confirm("למחוק את המשחק הזה? הפעולה תמחק גם שחקנים, דירוג ונתונים שלו.")) {
+      return;
+    }
+
+    try {
+      const response = await deleteJson(API.adminGames, { id: cleanGameId }, token);
+      setGames(response.games ?? []);
+      onPublicGamesRefresh();
+      setMessage("המשחק נמחק.");
+
+      if (cleanGameId === gameId) {
+        onGameChange(response.games?.[0]?.id ?? DEFAULT_GAME_ID);
+      }
+    } catch {
+      setMessage("לא הצלחנו למחוק את המשחק.");
+    }
+  }
+
   function logout() {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken("");
     setConfig(null);
     setAnalytics(null);
     setAdminUsers([]);
+    setGames([]);
     setStatus("idle");
     setMessage("");
   }
@@ -1425,6 +1636,15 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
 
       <div className="admin-tabs" role="tablist" aria-label="אזורי ניהול">
         <button
+          className={activeAdminTab === "games" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeAdminTab === "games"}
+          onClick={() => setActiveAdminTab("games")}
+        >
+          משחקים
+        </button>
+        <button
           className={activeAdminTab === "game" ? "is-active" : ""}
           type="button"
           role="tab"
@@ -1453,6 +1673,21 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
         </button>
       </div>
 
+      {activeAdminTab === "games" && (
+        <AdminGamesPanel
+          currentGameId={gameId}
+          games={games}
+          message={message}
+          newGameId={newGameId}
+          newGameTitle={newGameTitle}
+          onCreateGame={createNewGame}
+          onDeleteGame={deleteExistingGame}
+          onGameChange={onGameChange}
+          onNewGameIdChange={setNewGameId}
+          onNewGameTitleChange={setNewGameTitle}
+        />
+      )}
+
       {activeAdminTab === "analytics" && analytics && <AdminAnalyticsPanel analytics={analytics} />}
 
       {activeAdminTab === "users" && (
@@ -1479,6 +1714,83 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
           onUpdateRoomConfig={updateRoomConfig}
         />
       )}
+    </section>
+  );
+}
+
+function AdminGamesPanel({
+  currentGameId,
+  games,
+  message,
+  newGameId,
+  newGameTitle,
+  onCreateGame,
+  onDeleteGame,
+  onGameChange,
+  onNewGameIdChange,
+  onNewGameTitleChange,
+}) {
+  return (
+    <section className="admin-section">
+      <legend>משחקים</legend>
+      <p className="muted">
+        כל משחק מקבל כתובות, שאלות, קודים, שחקנים ודירוג משלו. משחק חדש מועתק מהמשחק הנוכחי כדי להתחיל מהר.
+      </p>
+
+      <div className="admin-games-list">
+        {games.map((game) => (
+          <div className={`admin-game-card ${game.id === currentGameId ? "is-active" : ""}`} key={game.id}>
+            <button className="admin-game-main" type="button" onClick={() => onGameChange(game.id)}>
+              <strong>{game.title}</strong>
+              <span dir="ltr">{`/g/${game.id}`}</span>
+            </button>
+            <button
+              className="icon-button danger-button"
+              type="button"
+              onClick={() => onDeleteGame(game.id)}
+              aria-label={`מחיקת ${game.title}`}
+              title={`מחיקת ${game.title}`}
+            >
+              <Trash2 aria-hidden="true" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <form className="nested-section" onSubmit={onCreateGame}>
+        <h3>יצירת משחק חדש</h3>
+        <div className="admin-inline-fields">
+          <label>
+            שם המשחק
+            <input
+              className="admin-input"
+              value={newGameTitle}
+              onChange={(event) => onNewGameTitleChange(event.target.value)}
+              placeholder="לדוגמה: חופשת קיץ"
+              required
+            />
+          </label>
+          <label>
+            כתובת באנגלית
+            <input
+              className="admin-input"
+              value={newGameId}
+              onChange={(event) => onNewGameIdChange(normalizeGameId(event.target.value))}
+              placeholder="summer-vacation"
+              dir="ltr"
+            />
+          </label>
+        </div>
+        <p className="admin-help-text">
+          אחרי היצירה אפשר לערוך בטאב משחק את השאלות, הקודים, הניקוד, ההודעות והפתרון הסופי.
+        </p>
+        <button className="primary-button" type="submit">
+          <Plus aria-hidden="true" />
+          יצירת משחק
+        </button>
+      </form>
+
+      {message && <p className="admin-message">{message}</p>}
     </section>
   );
 }

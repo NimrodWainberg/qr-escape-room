@@ -1,5 +1,6 @@
 import {
   getGameConfig,
+  getGameIdFromEvent,
   initBlobContext,
   jsonResponse,
   methodNotAllowed,
@@ -20,7 +21,8 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  const config = await getGameConfig();
+  const gameId = getGameIdFromEvent(event, body);
+  const config = await getGameConfig(gameId);
   const challenge = config.challenges.find((item) => item.id === Number(body.id));
 
   if (!challenge) {
@@ -28,7 +30,7 @@ export const handler = async (event) => {
   }
 
   const correct = normalizeCode(body.answer) === normalizeCode(challenge.answer);
-  const player = await recordChallengeAttempt(event, challenge.id, correct);
+  const player = await recordChallengeAttempt(event, challenge.id, correct, gameId);
 
   return jsonResponse(200, {
     correct,

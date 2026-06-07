@@ -1,4 +1,4 @@
-import { getLeaderboard, initBlobContext, jsonResponse, methodNotAllowed } from "./game-store.js";
+import { getGameIdFromEvent, getLeaderboard, initBlobContext, jsonResponse, methodNotAllowed } from "./game-store.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "GET") {
@@ -6,7 +6,7 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  const leaderboard = await getLeaderboard({ limit: 20 });
+  const leaderboard = await getLeaderboard({ limit: 20, gameId: getGameIdFromEvent(event) });
 
   return jsonResponse(200, { leaderboard });
 };

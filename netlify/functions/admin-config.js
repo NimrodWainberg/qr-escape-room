@@ -1,5 +1,6 @@
 import {
   getGameConfig,
+  getGameIdFromEvent,
   initBlobContext,
   jsonResponse,
   methodNotAllowed,
@@ -19,9 +20,10 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
+  const gameId = getGameIdFromEvent(event);
 
   if (event.httpMethod === "GET") {
-    const config = await getGameConfig();
+    const config = await getGameConfig(gameId);
     return jsonResponse(200, config);
   }
 
@@ -31,7 +33,7 @@ export const handler = async (event) => {
     return jsonResponse(400, { error: "invalid_json" });
   }
 
-  const savedConfig = await saveGameConfig(body);
+  const savedConfig = await saveGameConfig(body, gameId);
 
   return jsonResponse(200, {
     config: savedConfig,

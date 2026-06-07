@@ -2,10 +2,14 @@ import { connectLambda, getStore } from "@netlify/blobs";
 import crypto from "node:crypto";
 
 const STORE_NAME = "qr-escape-room";
+const DEFAULT_GAME_ID = "main";
+const GAMES_KEY = "games-v1";
 const CONFIG_KEY = "game-config-v1";
+const CONFIG_KEY_PREFIX = "game-config-v2/";
 const ADMIN_USERS_KEY = "admin-users-v1";
 const PLAYERS_KEY = "players-v1";
 const PLAYER_KEY_PREFIX = "players-v2/";
+const GAME_PLAYER_KEY_PREFIX = "game-players-v1/";
 const OTP_KEY_PREFIX = "player-otp-v1/";
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const PLAYER_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -47,6 +51,21 @@ export function normalizeCode(value) {
   return String(value ?? "").trim().replace(/\s+/g, "");
 }
 
+export function normalizeGameId(value) {
+  const slug = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+  return slug || DEFAULT_GAME_ID;
+}
+
+export function getGameIdFromEvent(event, body = null) {
+  return normalizeGameId(event.queryStringParameters?.gameId ?? event.queryStringParameters?.game ?? body?.gameId ?? body?.game);
+}
+
 export function jsonResponse(statusCode, data) {
   return {
     statusCode,
@@ -76,6 +95,27 @@ export function readJsonBody(event) {
 
 function cleanString(value, fallback = "") {
   return String(value ?? fallback);
+}
+
+function getConfigKey(gameId = DEFAULT_GAME_ID) {
+  const id = normalizeGameId(gameId);
+  return id === DEFAULT_GAME_ID ? CONFIG_KEY : `${CONFIG_KEY_PREFIX}${id}`;
+}
+
+function getPlayerPrefix(gameId = DEFAULT_GAME_ID) {
+  const id = normalizeGameId(gameId);
+  return id === DEFAULT_GAME_ID ? PLAYER_KEY_PREFIX : `${GAME_PLAYER_KEY_PREFIX}${id}/`;
+}
+
+function getLegacyPlayersKey(gameId = DEFAULT_GAME_ID) {
+  const id = normalizeGameId(gameId);
+  return id === DEFAULT_GAME_ID ? PLAYERS_KEY : `${PLAYERS_KEY}/${id}`;
+}
+
+function getOtpKey(email, gameId = DEFAULT_GAME_ID) {
+  const id = normalizeGameId(gameId);
+  const emailHash = hashToken(normalizeEmail(email));
+  return id === DEFAULT_GAME_ID ? `${OTP_KEY_PREFIX}${emailHash}` : `${OTP_KEY_PREFIX}${id}/${emailHash}`;
 }
 
 function cleanNumber(value, fallback = 0) {
@@ -191,16 +231,143 @@ export function toPublicConfig(config) {
   };
 }
 
-export async function getGameConfig() {
+function publicGame(game) {
+  return {
+    id: normalizeGameId(game.id),
+    title: cleanString(game.title, defaultGameConfig.roomConfig.title) || defaultGameConfig.roomConfig.title,
+    createdAt: cleanString(game.createdAt),
+    updatedAt: cleanString(game.updatedAt),
+  };
+}
+
+async function getGamesData() {
   const store = getStore(STORE_NAME);
-  const savedConfig = await store.get(CONFIG_KEY, { type: "json" });
+  const savedData = await store.get(GAMES_KEY, { type: "json" });
+
+  if (savedData && typeof savedData === "object" && Array.isArray(savedData.games)) {
+    return { games: savedData.games.map(publicGame) };
+  }
+
+  const games = Array.isArray(savedData?.games) ? savedData.games.map(publicGame) : [];
+
+  if (!games.some((game) => game.id === DEFAULT_GAME_ID)) {
+    const config = await getGameConfig(DEFAULT_GAME_ID);
+    games.unshift({
+      id: DEFAULT_GAME_ID,
+      title: config.roomConfig.title || defaultGameConfig.roomConfig.title,
+      createdAt: "",
+      updatedAt: "",
+    });
+  }
+
+  return { games };
+}
+
+async function saveGamesData(data) {
+  const cleanData = {
+    games: (Array.isArray(data?.games) ? data.games : [])
+      .map(publicGame)
+      .filter((game, index, games) => games.findIndex((item) => item.id === game.id) === index),
+  };
+  const store = getStore(STORE_NAME);
+  await store.setJSON(GAMES_KEY, cleanData);
+  return cleanData;
+}
+
+export async function listGames() {
+  return getGamesData();
+}
+
+export async function updateGameSummary(gameId, config) {
+  const id = normalizeGameId(gameId);
+  const gamesData = await getGamesData();
+  const now = new Date().toISOString();
+  const index = gamesData.games.findIndex((game) => game.id === id);
+  const nextGame = {
+    id,
+    title: cleanString(config?.roomConfig?.title, defaultGameConfig.roomConfig.title) || defaultGameConfig.roomConfig.title,
+    createdAt: gamesData.games[index]?.createdAt || now,
+    updatedAt: now,
+  };
+
+  if (index >= 0) {
+    gamesData.games[index] = nextGame;
+  } else {
+    gamesData.games.push(nextGame);
+  }
+
+  await saveGamesData(gamesData);
+  return nextGame;
+}
+
+export async function createGame({ id, title, sourceGameId = DEFAULT_GAME_ID } = {}) {
+  const gameId = normalizeGameId(id || title);
+  const gamesData = await getGamesData();
+
+  if (gamesData.games.some((game) => game.id === gameId)) {
+    throw new Error("game_exists");
+  }
+
+  const sourceConfig = await getGameConfig(sourceGameId);
+  const nextConfig = sanitizeGameConfig({
+    ...sourceConfig,
+    roomConfig: {
+      ...sourceConfig.roomConfig,
+      title: cleanString(title, sourceConfig.roomConfig.title) || sourceConfig.roomConfig.title,
+    },
+  });
+  const now = new Date().toISOString();
+  const game = {
+    id: gameId,
+    title: nextConfig.roomConfig.title,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  gamesData.games.push(game);
+  await Promise.all([saveGamesData(gamesData), saveGameConfig(nextConfig, gameId)]);
+
+  return { game, config: nextConfig };
+}
+
+export async function deleteGame(gameId) {
+  const id = normalizeGameId(gameId);
+
+  const gamesData = await getGamesData();
+  const nextGames = gamesData.games.filter((game) => game.id !== id);
+
+  if (nextGames.length === gamesData.games.length) {
+    throw new Error("game_not_found");
+  }
+
+  const store = getStore(STORE_NAME);
+  const [{ blobs: playerBlobs }, { blobs: otpBlobs }] = await Promise.all([
+    store.list({ prefix: getPlayerPrefix(id) }),
+    store.list({ prefix: `${OTP_KEY_PREFIX}${id}/` }),
+  ]);
+
+  await Promise.all([
+    saveGamesData({ games: nextGames }),
+    store.delete(getConfigKey(id)),
+    store.delete(getLegacyPlayersKey(id)),
+    ...playerBlobs.map((blob) => store.delete(blob.key)),
+    ...otpBlobs.map((blob) => store.delete(blob.key)),
+  ]);
+
+  return { games: nextGames };
+}
+
+export async function getGameConfig(gameId = DEFAULT_GAME_ID) {
+  const store = getStore(STORE_NAME);
+  const savedConfig = await store.get(getConfigKey(gameId), { type: "json" });
   return sanitizeGameConfig(savedConfig);
 }
 
-export async function saveGameConfig(config) {
+export async function saveGameConfig(config, gameId = DEFAULT_GAME_ID) {
   const cleanConfig = sanitizeGameConfig(config);
   const store = getStore(STORE_NAME);
-  await store.setJSON(CONFIG_KEY, cleanConfig);
+  await store.setJSON(getConfigKey(gameId), cleanConfig);
+  await updateGameSummary(gameId, cleanConfig);
   return cleanConfig;
 }
 
@@ -260,10 +427,6 @@ function hashOtp(email, code) {
     .createHmac("sha256", getTokenSecret())
     .update(`${normalizeEmail(email)}:${String(code).trim()}`)
     .digest("base64url");
-}
-
-function getOtpKey(email) {
-  return `${OTP_KEY_PREFIX}${hashToken(normalizeEmail(email))}`;
 }
 
 function getEmailProvider() {
@@ -384,6 +547,7 @@ function createPlayerToken(player) {
       playerId: player.id,
       name: player.name,
       email: player.email,
+      gameId: player.gameId ?? DEFAULT_GAME_ID,
     },
     PLAYER_TOKEN_TTL_MS,
   );
@@ -495,6 +659,7 @@ function sanitizePlayersData(data) {
     players: players
       .map((player) => ({
         id: cleanString(player.id),
+        gameId: normalizeGameId(player.gameId),
         name: cleanString(player.name, "אורח"),
         email: normalizeEmail(player.email),
         tokenHash: cleanString(player.tokenHash),
@@ -508,10 +673,11 @@ function sanitizePlayersData(data) {
   };
 }
 
-async function getPlayersData() {
+async function getPlayersData(gameId = DEFAULT_GAME_ID) {
   const store = getStore(STORE_NAME);
-  const legacyData = sanitizePlayersData(await store.get(PLAYERS_KEY, { type: "json" }));
-  const { blobs } = await store.list({ prefix: PLAYER_KEY_PREFIX });
+  const id = normalizeGameId(gameId);
+  const legacyData = sanitizePlayersData(await store.get(getLegacyPlayersKey(id), { type: "json" }));
+  const { blobs } = await store.list({ prefix: getPlayerPrefix(id) });
   const playerEntries = await Promise.all(blobs.map((blob) => store.get(blob.key, { type: "json" })));
   const playersById = new Map();
 
@@ -526,10 +692,11 @@ async function getPlayersData() {
   return { players: [...playersById.values()] };
 }
 
-async function savePlayersData(data) {
+async function savePlayersData(data, gameId = DEFAULT_GAME_ID) {
   const cleanData = sanitizePlayersData(data);
   const store = getStore(STORE_NAME);
-  await Promise.all(cleanData.players.map((player) => store.setJSON(`${PLAYER_KEY_PREFIX}${player.id}`, player)));
+  const prefix = getPlayerPrefix(gameId);
+  await Promise.all(cleanData.players.map((player) => store.setJSON(`${prefix}${player.id}`, player)));
   return cleanData;
 }
 
@@ -547,8 +714,9 @@ function getPlayerTokenFromEvent(event) {
   return authorizationHeader.replace(/^Bearer\s+/i, "");
 }
 
-export async function createPlayerSession({ name, email }) {
-  const data = await getPlayersData();
+export async function createPlayerSessionForGame({ name, email, gameId = DEFAULT_GAME_ID }) {
+  const id = normalizeGameId(gameId);
+  const data = await getPlayersData(id);
   const normalizedEmail = normalizeEmail(email);
   const now = new Date().toISOString();
   let player = normalizedEmail ? data.players.find((item) => item.email === normalizedEmail) : null;
@@ -556,6 +724,7 @@ export async function createPlayerSession({ name, email }) {
   if (!player) {
     player = {
       id: crypto.randomUUID(),
+      gameId: id,
       name: cleanString(name, "אורח") || "אורח",
       email: normalizedEmail,
       tokenHash: "",
@@ -569,9 +738,11 @@ export async function createPlayerSession({ name, email }) {
   }
 
   player.name = cleanString(name, player.name) || player.name;
+  player.gameId = id;
   const token = createPlayerToken(player);
   player.tokenHash = hashToken(token);
   player.lastSeenAt = now;
+  await savePlayersData(data, id);
 
   return {
     token,
@@ -579,7 +750,11 @@ export async function createPlayerSession({ name, email }) {
   };
 }
 
-export async function requestPlayerOtp({ name, email }) {
+export async function createPlayerSession({ name, email }) {
+  return createPlayerSessionForGame({ name, email, gameId: DEFAULT_GAME_ID });
+}
+
+export async function requestPlayerOtp({ name, email, gameId = DEFAULT_GAME_ID }) {
   if (!getTokenSecret()) {
     throw new Error("otp_secret_missing");
   }
@@ -601,7 +776,7 @@ export async function requestPlayerOtp({ name, email }) {
   const now = Date.now();
   const store = getStore(STORE_NAME);
 
-  await store.setJSON(getOtpKey(normalizedEmail), {
+  await store.setJSON(getOtpKey(normalizedEmail, gameId), {
     email: normalizedEmail,
     name: cleanString(name, "אורח"),
     codeHash: hashOtp(normalizedEmail, code),
@@ -619,7 +794,7 @@ export async function requestPlayerOtp({ name, email }) {
   };
 }
 
-export async function verifyPlayerOtp({ name, email, code }) {
+export async function verifyPlayerOtp({ name, email, code, gameId = DEFAULT_GAME_ID }) {
   if (!getTokenSecret()) {
     throw new Error("otp_secret_missing");
   }
@@ -632,7 +807,7 @@ export async function verifyPlayerOtp({ name, email, code }) {
   }
 
   const store = getStore(STORE_NAME);
-  const otpKey = getOtpKey(normalizedEmail);
+  const otpKey = getOtpKey(normalizedEmail, gameId);
   const record = await store.get(otpKey, { type: "json" });
 
   if (!record?.codeHash || record.email !== normalizedEmail) {
@@ -658,23 +833,25 @@ export async function verifyPlayerOtp({ name, email, code }) {
   }
 
   await store.delete(otpKey);
-  return createPlayerSession({
+  return createPlayerSessionForGame({
     name: cleanString(name, record.name),
     email: normalizedEmail,
+    gameId,
   });
 }
 
-async function getPlayerSession(event) {
+async function getPlayerSession(event, gameId = DEFAULT_GAME_ID) {
   const token = getPlayerTokenFromEvent(event);
 
   if (!token) {
     return null;
   }
 
-  const data = await getPlayersData();
+  const id = normalizeGameId(gameId);
+  const data = await getPlayersData(id);
   const signedPlayer = readSignedToken(token);
   const tokenDigest = hashToken(token);
-  let playerIndex = signedPlayer?.type === "player"
+  let playerIndex = signedPlayer?.type === "player" && normalizeGameId(signedPlayer.gameId) === id
     ? data.players.findIndex((player) => player.id === signedPlayer.playerId)
     : -1;
 
@@ -685,6 +862,7 @@ async function getPlayerSession(event) {
   if (playerIndex < 0 && signedPlayer?.type === "player" && signedPlayer.playerId) {
     data.players.push({
       id: signedPlayer.playerId,
+      gameId: id,
       name: cleanString(signedPlayer.name, "אורח") || "אורח",
       email: normalizeEmail(signedPlayer.email),
       tokenHash: tokenDigest,
@@ -726,8 +904,8 @@ function recordPlayerEvent(player, event) {
   player.events = [...(Array.isArray(player.events) ? player.events : []), event].slice(-PLAYER_EVENT_LIMIT);
 }
 
-export async function recordChallengeAttempt(event, challengeId, correct) {
-  const session = await getPlayerSession(event);
+export async function recordChallengeAttempt(event, challengeId, correct, gameId = DEFAULT_GAME_ID) {
+  const session = await getPlayerSession(event, gameId);
 
   if (!session) {
     return null;
@@ -747,13 +925,13 @@ export async function recordChallengeAttempt(event, challengeId, correct) {
 
   session.player.lastSeenAt = now;
   recordPlayerEvent(session.player, { type: "challenge", challengeId, correct, at: now });
-  await savePlayersData(session.data);
+  await savePlayersData(session.data, gameId);
 
   return publicPlayer(session.player);
 }
 
-export async function recordFinalAttempt(event, correct) {
-  const session = await getPlayerSession(event);
+export async function recordFinalAttempt(event, correct, gameId = DEFAULT_GAME_ID) {
+  const session = await getPlayerSession(event, gameId);
 
   if (!session) {
     return null;
@@ -778,7 +956,7 @@ export async function recordFinalAttempt(event, correct) {
 
   session.player.lastSeenAt = now;
   recordPlayerEvent(session.player, { type: "final", correct, at: now });
-  await savePlayersData(session.data);
+  await savePlayersData(session.data, gameId);
 
   return publicPlayer(session.player);
 }
@@ -851,31 +1029,32 @@ function sortLeaderboard(left, right) {
   return Date.parse(left.startedAt) - Date.parse(right.startedAt);
 }
 
-export async function getLeaderboard({ limit = 10 } = {}) {
-  const [playersData, config] = await Promise.all([getPlayersData(), getGameConfig()]);
+export async function getLeaderboard({ limit = 10, gameId = DEFAULT_GAME_ID } = {}) {
+  const [playersData, config] = await Promise.all([getPlayersData(gameId), getGameConfig(gameId)]);
 
   return playersData.players.map((player) => summarizePlayer(player, config)).sort(sortLeaderboard).slice(0, limit);
 }
 
-export async function deletePlayers(ids) {
+export async function deletePlayers(ids, gameId = DEFAULT_GAME_ID) {
   const playerIds = new Set((Array.isArray(ids) ? ids : []).map((id) => cleanString(id)).filter(Boolean));
 
   if (!playerIds.size) {
-    return getAnalytics();
+    return getAnalytics(gameId);
   }
 
   const store = getStore(STORE_NAME);
-  const legacyData = sanitizePlayersData(await store.get(PLAYERS_KEY, { type: "json" }));
-  await store.setJSON(PLAYERS_KEY, {
+  const legacyData = sanitizePlayersData(await store.get(getLegacyPlayersKey(gameId), { type: "json" }));
+  await store.setJSON(getLegacyPlayersKey(gameId), {
     players: legacyData.players.filter((player) => !playerIds.has(player.id)),
   });
-  await Promise.all([...playerIds].map((id) => store.delete(`${PLAYER_KEY_PREFIX}${id}`)));
+  const prefix = getPlayerPrefix(gameId);
+  await Promise.all([...playerIds].map((id) => store.delete(`${prefix}${id}`)));
 
-  return getAnalytics();
+  return getAnalytics(gameId);
 }
 
-export async function getAnalytics() {
-  const [playersData, config] = await Promise.all([getPlayersData(), getGameConfig()]);
+export async function getAnalytics(gameId = DEFAULT_GAME_ID) {
+  const [playersData, config] = await Promise.all([getPlayersData(gameId), getGameConfig(gameId)]);
   const summaries = playersData.players.map((player) => summarizePlayer(player, config)).sort(sortLeaderboard);
   const completedPlayers = summaries.filter((summary) => summary.completed);
   const totalWrongAttempts = summaries.reduce((total, summary) => total + summary.wrongAttempts, 0);

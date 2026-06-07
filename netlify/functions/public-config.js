@@ -1,4 +1,11 @@
-import { getGameConfig, initBlobContext, jsonResponse, methodNotAllowed, toPublicConfig } from "./game-store.js";
+import {
+  getGameConfig,
+  getGameIdFromEvent,
+  initBlobContext,
+  jsonResponse,
+  methodNotAllowed,
+  toPublicConfig,
+} from "./game-store.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "GET") {
@@ -6,7 +13,8 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  const config = await getGameConfig();
+  const gameId = getGameIdFromEvent(event);
+  const config = await getGameConfig(gameId);
 
-  return jsonResponse(200, toPublicConfig(config));
+  return jsonResponse(200, { ...toPublicConfig(config), gameId });
 };

@@ -1,4 +1,11 @@
-import { createPlayerSession, initBlobContext, jsonResponse, methodNotAllowed, readJsonBody } from "./game-store.js";
+import {
+  createPlayerSessionForGame,
+  getGameIdFromEvent,
+  initBlobContext,
+  jsonResponse,
+  methodNotAllowed,
+  readJsonBody,
+} from "./game-store.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -12,9 +19,10 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  const session = await createPlayerSession({
+  const session = await createPlayerSessionForGame({
     name: body.name,
     email: body.email,
+    gameId: getGameIdFromEvent(event, body),
   });
 
   return jsonResponse(200, session);

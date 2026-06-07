@@ -1,6 +1,7 @@
 import {
   deletePlayers,
   getAnalytics,
+  getGameIdFromEvent,
   initBlobContext,
   jsonResponse,
   methodNotAllowed,
@@ -18,17 +19,18 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  if (event.httpMethod === "DELETE") {
-    const body = readJsonBody(event);
+  const body = event.httpMethod === "DELETE" ? readJsonBody(event) : {};
+  const gameId = getGameIdFromEvent(event, body);
 
+  if (event.httpMethod === "DELETE") {
     if (!body) {
       return jsonResponse(400, { error: "invalid_json" });
     }
 
-    return jsonResponse(200, await deletePlayers(body.ids));
+    return jsonResponse(200, await deletePlayers(body.ids, gameId));
   }
 
-  const analytics = await getAnalytics();
+  const analytics = await getAnalytics(gameId);
 
   return jsonResponse(200, analytics);
 };
