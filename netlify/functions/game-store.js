@@ -30,6 +30,7 @@ const defaultGameConfig = {
     finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
     finalSuccessButtonLabel: "חזרה לשלבים",
     finalCode: "חופשה נעימה",
+    gamePassword: "",
     questionPoints: 10,
     wrongAnswerPenalty: 1,
     finalBonusPoints: 50,
@@ -145,12 +146,37 @@ function sanitizeChallenge(challenge, index) {
   const numericId = Number(challenge?.id);
   const id = Number.isFinite(numericId) && numericId > 0 ? Math.trunc(numericId) : fallbackId;
 
+  const answerType = challenge?.answerType === "choice" ? "choice" : "open";
+  const answerFields = Array.isArray(challenge?.answerFields)
+    ? challenge.answerFields
+        .slice(0, 6)
+        .map((field, fieldIndex) => ({
+          id: cleanString(field?.id, `field-${fieldIndex + 1}`) || `field-${fieldIndex + 1}`,
+          label: cleanString(field?.label, fieldIndex === 0 ? "" : `שדה ${fieldIndex + 1}`),
+          answer: cleanString(field?.answer),
+        }))
+        .filter((field) => field.answer || field.label)
+    : [];
+  const choiceOptions = Array.isArray(challenge?.choiceOptions)
+    ? challenge.choiceOptions
+        .slice(0, 8)
+        .map((option, optionIndex) => ({
+          id: cleanString(option?.id, `option-${optionIndex + 1}`) || `option-${optionIndex + 1}`,
+          text: cleanString(option?.text),
+          correct: Boolean(option?.correct),
+        }))
+        .filter((option) => option.text)
+    : [];
+
   return {
     id,
     path: cleanString(challenge?.path, `/q/${id}`) || `/q/${id}`,
     title: cleanString(challenge?.title, `קוד ${id}`) || `קוד ${id}`,
     question: cleanString(challenge?.question),
+    answerType,
     answer: cleanString(challenge?.answer),
+    answerFields,
+    choiceOptions,
     reward: cleanString(challenge?.reward),
     points: cleanOptionalNumber(challenge?.points),
     wrongAnswerPenalty: cleanOptionalNumber(challenge?.wrongAnswerPenalty),
@@ -197,6 +223,7 @@ export function sanitizeGameConfig(config) {
         defaultGameConfig.roomConfig.finalSuccessButtonLabel,
       ),
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
+      gamePassword: cleanString(sourceRoomConfig.gamePassword, defaultGameConfig.roomConfig.gamePassword),
       questionPoints: cleanNumber(sourceRoomConfig.questionPoints, defaultGameConfig.roomConfig.questionPoints),
       wrongAnswerPenalty: cleanNumber(
         sourceRoomConfig.wrongAnswerPenalty,
@@ -226,17 +253,26 @@ export function toPublicConfig(config) {
       questionPoints: safeConfig.roomConfig.questionPoints,
       wrongAnswerPenalty: safeConfig.roomConfig.wrongAnswerPenalty,
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
+      passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
     },
-    challenges: safeConfig.challenges.map(({ answer, ...challenge }) => challenge),
+    challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({
+      ...challenge,
+      answerFields: answerFields.map(({ answer: _answer, ...field }) => field),
+      choiceOptions: choiceOptions.map(({ correct: _correct, ...option }) => option),
+    })),
   };
 }
 
-function publicGame(game) {
+async function publicGame(game) {
+  const id = normalizeGameId(game.id);
+  const config = await getGameConfig(id);
+
   return {
-    id: normalizeGameId(game.id),
-    title: cleanString(game.title, defaultGameConfig.roomConfig.title) || defaultGameConfig.roomConfig.title,
+    id,
+    title: cleanString(game.title, config.roomConfig.title || defaultGameConfig.roomConfig.title) || defaultGameConfig.roomConfig.title,
     createdAt: cleanString(game.createdAt),
     updatedAt: cleanString(game.updatedAt),
+    locked: Boolean(config.roomConfig.gamePassword),
   };
 }
 
@@ -245,10 +281,10 @@ async function getGamesData() {
   const savedData = await store.get(GAMES_KEY, { type: "json" });
 
   if (savedData && typeof savedData === "object" && Array.isArray(savedData.games)) {
-    return { games: savedData.games.map(publicGame) };
+    return { games: await Promise.all(savedData.games.map(publicGame)) };
   }
 
-  const games = Array.isArray(savedData?.games) ? savedData.games.map(publicGame) : [];
+  const games = Array.isArray(savedData?.games) ? await Promise.all(savedData.games.map(publicGame)) : [];
 
   if (!games.some((game) => game.id === DEFAULT_GAME_ID)) {
     const config = await getGameConfig(DEFAULT_GAME_ID);
@@ -264,10 +300,23 @@ async function getGamesData() {
 }
 
 async function saveGamesData(data) {
+  const cleanGames = [];
+
+  for (const game of Array.isArray(data?.games) ? data.games : []) {
+    const cleanGame = {
+      id: normalizeGameId(game.id),
+      title: cleanString(game.title, defaultGameConfig.roomConfig.title) || defaultGameConfig.roomConfig.title,
+      createdAt: cleanString(game.createdAt),
+      updatedAt: cleanString(game.updatedAt),
+    };
+
+    if (!cleanGames.some((item) => item.id === cleanGame.id)) {
+      cleanGames.push(cleanGame);
+    }
+  }
+
   const cleanData = {
-    games: (Array.isArray(data?.games) ? data.games : [])
-      .map(publicGame)
-      .filter((game, index, games) => games.findIndex((item) => item.id === game.id) === index),
+    games: cleanGames,
   };
   const store = getStore(STORE_NAME);
   await store.setJSON(GAMES_KEY, cleanData);
@@ -301,7 +350,9 @@ export async function updateGameSummary(gameId, config) {
 }
 
 export async function createGame({ id, title, sourceGameId = DEFAULT_GAME_ID } = {}) {
-  const gameId = normalizeGameId(id || title);
+  const cleanId = normalizeGameId(id);
+  const cleanTitleId = normalizeGameId(title);
+  const gameId = cleanId !== DEFAULT_GAME_ID ? cleanId : cleanTitleId !== DEFAULT_GAME_ID ? cleanTitleId : `game-${crypto.randomBytes(3).toString("hex")}`;
   const gamesData = await getGamesData();
 
   if (gamesData.games.some((game) => game.id === gameId)) {
@@ -325,7 +376,8 @@ export async function createGame({ id, title, sourceGameId = DEFAULT_GAME_ID } =
   };
 
   gamesData.games.push(game);
-  await Promise.all([saveGamesData(gamesData), saveGameConfig(nextConfig, gameId)]);
+  await saveGamesData(gamesData);
+  await saveGameConfig(nextConfig, gameId);
 
   return { game, config: nextConfig };
 }
@@ -361,6 +413,17 @@ export async function getGameConfig(gameId = DEFAULT_GAME_ID) {
   const store = getStore(STORE_NAME);
   const savedConfig = await store.get(getConfigKey(gameId), { type: "json" });
   return sanitizeGameConfig(savedConfig);
+}
+
+export async function verifyGamePassword(gameId, password) {
+  const config = await getGameConfig(gameId);
+  const expectedPassword = cleanString(config.roomConfig.gamePassword).trim();
+
+  if (!expectedPassword) {
+    return true;
+  }
+
+  return safeCompare(normalizeCode(expectedPassword), normalizeCode(password));
 }
 
 export async function saveGameConfig(config, gameId = DEFAULT_GAME_ID) {

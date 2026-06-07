@@ -25,11 +25,13 @@ const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
 const ADMIN_TOKEN_KEY = "qr-escape-room-admin-token-v1";
 const PLAYER_SESSION_KEY = "qr-escape-room-player-session-v1";
+const GAME_ACCESS_KEY = "qr-escape-room-game-access-v1";
 const DEFAULT_GAME_ID = "main";
 
 const API = {
   publicConfig: "/.netlify/functions/public-config",
   publicGames: "/.netlify/functions/public-games",
+  gameAccess: "/.netlify/functions/game-access",
   checkAnswer: "/.netlify/functions/check-answer",
   checkFinal: "/.netlify/functions/check-final",
   adminLogin: "/.netlify/functions/admin-login",
@@ -84,6 +86,10 @@ function withGame(url, gameId) {
 
 function storageKeyForGame(baseKey, gameId) {
   return normalizeGameId(gameId) === DEFAULT_GAME_ID ? baseKey : `${baseKey}:${normalizeGameId(gameId)}`;
+}
+
+function createRandomGameSlug() {
+  return `game-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function isChallengeSolved(challenge, solved) {
@@ -217,6 +223,14 @@ function readPlayerSession(gameId = DEFAULT_GAME_ID) {
   }
 }
 
+function readGameAccess(gameId = DEFAULT_GAME_ID) {
+  try {
+    return localStorage.getItem(storageKeyForGame(GAME_ACCESS_KEY, gameId)) === "unlocked";
+  } catch {
+    return false;
+  }
+}
+
 function formatDuration(milliseconds) {
   if (!Number.isFinite(milliseconds)) {
     return "0:00";
@@ -242,6 +256,7 @@ export default function App() {
   const [playerSession, setPlayerSession] = useState(() => readPlayerSession(gameId));
   const [leaderboard, setLeaderboard] = useState([]);
   const [publicGames, setPublicGames] = useState([]);
+  const [gameUnlocked, setGameUnlocked] = useState(() => readGameAccess(gameId));
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
@@ -286,6 +301,9 @@ export default function App() {
 
   useEffect(() => {
     loadLeaderboard();
+
+    const intervalId = window.setInterval(loadLeaderboard, 10000);
+    return () => window.clearInterval(intervalId);
   }, [gameId]);
 
   useEffect(() => {
@@ -295,6 +313,7 @@ export default function App() {
   useEffect(() => {
     setSolved(readSolved(gameId));
     setPlayerSession(readPlayerSession(gameId));
+    setGameUnlocked(readGameAccess(gameId));
   }, [gameId]);
 
   useEffect(() => {
@@ -323,6 +342,12 @@ export default function App() {
     const nextId = normalizeGameId(nextGameId);
     window.history.pushState({}, "", buildDirectGamePath(nextId, nextPath));
     setRouteInfo({ gameId: nextId, gamePath: nextPath });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function navigateAdmin() {
+    window.history.pushState({}, "", "/admin");
+    setRouteInfo({ gameId, gamePath: "/admin" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -355,6 +380,12 @@ export default function App() {
     } catch {
       setPublicGames([]);
     }
+  }
+
+  async function unlockGame(password) {
+    await postJson(API.gameAccess, { gameId, password });
+    localStorage.setItem(storageKeyForGame(GAME_ACCESS_KEY, gameId), "unlocked");
+    setGameUnlocked(true);
   }
 
   async function loginPlayer(credentials) {
@@ -462,7 +493,7 @@ export default function App() {
           <button
             className="icon-button"
             type="button"
-            onClick={() => navigate("/admin")}
+            onClick={navigateAdmin}
             aria-label="ניהול"
             title="ניהול"
           >
@@ -478,7 +509,7 @@ export default function App() {
             gameId={gameId}
             onGameChange={(nextGameId) => {
               const nextId = normalizeGameId(nextGameId);
-              window.history.pushState({}, "", buildDirectGamePath(nextId, "/admin"));
+              window.history.pushState({}, "", "/admin");
               setRouteInfo({ gameId: nextId, gamePath: "/admin" });
             }}
             onPublicConfigChange={(publicConfig) => setGameConfig(publicConfig)}
@@ -491,6 +522,8 @@ export default function App() {
             roomConfig={roomConfig}
             onNavigateToGame={navigateToGame}
           />
+        ) : roomConfig.passwordProtected && !gameUnlocked ? (
+          <GamePasswordGate roomConfig={roomConfig} onUnlock={unlockGame} onBack={() => navigateToGame(DEFAULT_GAME_ID)} />
         ) : activeChallenge ? (
           !playerSession ? (
             <HomePage
@@ -605,11 +638,11 @@ function GamesDirectoryPage({ games, roomConfig, onNavigateToGame }) {
           {games.map((game) => (
             <button className="game-picker-card" key={game.id} type="button" onClick={() => onNavigateToGame(game.id)}>
               <span className="round-badge">
-                <QrCode aria-hidden="true" />
+                {game.locked ? <LockKeyhole aria-hidden="true" /> : <QrCode aria-hidden="true" />}
               </span>
               <span>
                 <strong>{game.title}</strong>
-                <small dir="ltr">{`/g/${game.id}`}</small>
+                <small dir="ltr">{game.locked ? `נעול · /g/${game.id}` : `/g/${game.id}`}</small>
               </span>
               <Sparkles aria-hidden="true" />
             </button>
@@ -621,6 +654,55 @@ function GamesDirectoryPage({ games, roomConfig, onNavigateToGame }) {
           <span>אדמין יכול ליצור משחק חדש בפאנל הניהול.</span>
         </div>
       )}
+    </section>
+  );
+}
+
+function GamePasswordGate({ roomConfig, onBack, onUnlock }) {
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState("");
+
+  async function submitPassword(event) {
+    event.preventDefault();
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      await onUnlock(password);
+      setStatus("idle");
+    } catch {
+      setStatus("idle");
+      setMessage("הסיסמה לא נכונה. נסו שוב.");
+    }
+  }
+
+  return (
+    <section className="play-panel password-gate">
+      <span className="round-badge">
+        <LockKeyhole aria-hidden="true" />
+      </span>
+      <p className="eyebrow">משחק נעול</p>
+      <h1>{roomConfig.title}</h1>
+      <form className="code-form" onSubmit={submitPassword}>
+        <label htmlFor="game-password">סיסמת משחק</label>
+        <input
+          id="game-password"
+          className="admin-input"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+        />
+        <button className="primary-button" type="submit" disabled={status === "loading"}>
+          {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Sparkles aria-hidden="true" />}
+          כניסה
+        </button>
+      </form>
+      {message && <p className="admin-message">{message}</p>}
+      <button className="ghost-button" type="button" onClick={onBack}>
+        חזרה לרשימת המשחקים
+      </button>
     </section>
   );
 }
@@ -964,7 +1046,11 @@ function LeaderboardPanel({ leaderboard }) {
         <tbody>
           {leaderboard.slice(0, 12).map((player, index) => (
             <tr key={player.id}>
-              <td>{index + 1}</td>
+              <td>
+                <span className={`rank-badge rank-${index + 1}`}>
+                  {index < 3 ? ["🏆", "🥈", "🥉"][index] : index + 1}
+                </span>
+              </td>
               <td>{player.name}</td>
               <td>{player.level}</td>
               <td>{player.points}</td>
@@ -1016,10 +1102,16 @@ function ChallengePage({
   onLeaderboardRefresh,
 }) {
   const [value, setValue] = useState("");
+  const [answerValues, setAnswerValues] = useState([]);
+  const [choiceId, setChoiceId] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
+  const answerFields = challenge.answerFields?.length ? challenge.answerFields.slice(0, 6) : [];
+  const isChoiceQuestion = challenge.answerType === "choice";
 
   useEffect(() => {
     setValue("");
+    setAnswerValues([]);
+    setChoiceId("");
     setResult(solved ? "success" : "idle");
   }, [challenge.id, solved]);
 
@@ -1031,6 +1123,8 @@ function ChallengePage({
       const response = await postJson(API.checkAnswer, {
         id: challenge.id,
         answer: value,
+        answers: answerValues,
+        choiceId,
         gameId,
       }, playerSession.token);
 
@@ -1073,18 +1167,58 @@ function ChallengePage({
       </div>
 
       <form className="code-form" onSubmit={submitAnswer}>
-        <label htmlFor={`answer-${challenge.id}`}>הכניסו מספר</label>
-        <input
-          id={`answer-${challenge.id}`}
-          className="code-input"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          autoComplete="off"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="000"
-          dir="ltr"
-        />
+        {isChoiceQuestion ? (
+          <div className="choice-answer-grid" role="radiogroup" aria-label="בחירת תשובה">
+            {challenge.choiceOptions.map((option) => (
+              <label className={`choice-answer ${choiceId === option.id ? "is-selected" : ""}`} key={option.id}>
+                <input
+                  type="radio"
+                  name={`choice-${challenge.id}`}
+                  value={option.id}
+                  checked={choiceId === option.id}
+                  onChange={(event) => setChoiceId(event.target.value)}
+                />
+                <span>{option.text}</span>
+              </label>
+            ))}
+          </div>
+        ) : answerFields.length > 0 ? (
+          <div className="multi-answer-row">
+            {answerFields.map((field, index) => (
+              <label key={field.id}>
+                {field.label || `תשובה ${index + 1}`}
+                <input
+                  className="code-input compact-code-input"
+                  autoComplete="off"
+                  value={answerValues[index] ?? ""}
+                  onChange={(event) =>
+                    setAnswerValues((current) => {
+                      const next = [...current];
+                      next[index] = event.target.value;
+                      return next;
+                    })
+                  }
+                  dir="auto"
+                />
+              </label>
+            ))}
+          </div>
+        ) : (
+          <>
+            <label htmlFor={`answer-${challenge.id}`}>הכניסו מספר</label>
+            <input
+              id={`answer-${challenge.id}`}
+              className="code-input"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="off"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder="000"
+              dir="ltr"
+            />
+          </>
+        )}
         <button className="primary-button" type="submit" disabled={result === "checking"}>
           {result === "checking" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Sparkles aria-hidden="true" />}
           {result === "checking" ? "בודק..." : "בדיקה"}
@@ -1336,7 +1470,13 @@ function createBlankChallenge(challenges) {
     path: `/q/${id}`,
     title: `קוד ${id}`,
     question: "",
+    answerType: "open",
     answer: "",
+    answerFields: [],
+    choiceOptions: [
+      { id: "option-1", text: "", correct: true },
+      { id: "option-2", text: "", correct: false },
+    ],
     reward: "",
     points: "",
     wrongAnswerPenalty: "",
@@ -1447,6 +1587,118 @@ function AdminPage({
     }));
   }
 
+  function updateChallengeAnswerField(index, fieldIndex, field, value) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) => {
+        if (challengeIndex !== index) {
+          return challenge;
+        }
+
+        const answerFields = [...(challenge.answerFields ?? [])];
+        answerFields[fieldIndex] = {
+          id: answerFields[fieldIndex]?.id ?? `field-${fieldIndex + 1}`,
+          label: answerFields[fieldIndex]?.label ?? "",
+          answer: answerFields[fieldIndex]?.answer ?? "",
+          [field]: value,
+        };
+        return { ...challenge, answerFields };
+      }),
+    }));
+  }
+
+  function addChallengeAnswerField(index) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) => {
+        if (challengeIndex !== index || (challenge.answerFields?.length ?? 0) >= 6) {
+          return challenge;
+        }
+
+        const nextIndex = (challenge.answerFields?.length ?? 0) + 1;
+        return {
+          ...challenge,
+          answerFields: [...(challenge.answerFields ?? []), { id: `field-${nextIndex}`, label: `שדה ${nextIndex}`, answer: "" }],
+        };
+      }),
+    }));
+  }
+
+  function removeChallengeAnswerField(index, fieldIndex) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) =>
+        challengeIndex === index
+          ? { ...challenge, answerFields: (challenge.answerFields ?? []).filter((_, itemIndex) => itemIndex !== fieldIndex) }
+          : challenge,
+      ),
+    }));
+  }
+
+  function updateChoiceOption(index, optionIndex, field, value) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) => {
+        if (challengeIndex !== index) {
+          return challenge;
+        }
+
+        const choiceOptions = [...(challenge.choiceOptions ?? [])];
+        choiceOptions[optionIndex] = {
+          id: choiceOptions[optionIndex]?.id ?? `option-${optionIndex + 1}`,
+          text: choiceOptions[optionIndex]?.text ?? "",
+          correct: choiceOptions[optionIndex]?.correct ?? false,
+          [field]: value,
+        };
+
+        if (field === "correct" && value) {
+          return {
+            ...challenge,
+            choiceOptions: choiceOptions.map((option, itemIndex) => ({ ...option, correct: itemIndex === optionIndex })),
+          };
+        }
+
+        return { ...challenge, choiceOptions };
+      }),
+    }));
+  }
+
+  function addChoiceOption(index) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) => {
+        if (challengeIndex !== index || (challenge.choiceOptions?.length ?? 0) >= 8) {
+          return challenge;
+        }
+
+        const nextIndex = (challenge.choiceOptions?.length ?? 0) + 1;
+        return {
+          ...challenge,
+          choiceOptions: [...(challenge.choiceOptions ?? []), { id: `option-${nextIndex}`, text: "", correct: false }],
+        };
+      }),
+    }));
+  }
+
+  function removeChoiceOption(index, optionIndex) {
+    setConfig((current) => ({
+      ...current,
+      challenges: current.challenges.map((challenge, challengeIndex) => {
+        if (challengeIndex !== index) {
+          return challenge;
+        }
+
+        const choiceOptions = (challenge.choiceOptions ?? []).filter((_, itemIndex) => itemIndex !== optionIndex);
+        return {
+          ...challenge,
+          choiceOptions: choiceOptions.some((option) => option.correct)
+            ? choiceOptions
+            : choiceOptions.map((option, itemIndex) => ({ ...option, correct: itemIndex === 0 })),
+        };
+      }),
+    }));
+  }
+
   function addChallenge() {
     setConfig((current) => ({
       ...current,
@@ -1497,7 +1749,7 @@ function AdminPage({
       const response = await postJson(
         API.adminGames,
         {
-          id: newGameId,
+          id: newGameId || createRandomGameSlug(),
           title: newGameTitle,
           sourceGameId: gameId,
         },
@@ -1709,8 +1961,14 @@ function AdminPage({
           status={status}
           onAddChallenge={addChallenge}
           onRemoveChallenge={removeChallenge}
+          onAddAnswerField={addChallengeAnswerField}
+          onAddChoiceOption={addChoiceOption}
+          onRemoveAnswerField={removeChallengeAnswerField}
+          onRemoveChoiceOption={removeChoiceOption}
           onSaveConfig={saveConfig}
+          onUpdateAnswerField={updateChallengeAnswerField}
           onUpdateChallenge={updateChallenge}
+          onUpdateChoiceOption={updateChoiceOption}
           onUpdateRoomConfig={updateRoomConfig}
         />
       )}
@@ -1799,10 +2057,16 @@ function AdminGameForm({
   config,
   message,
   status,
+  onAddAnswerField,
   onAddChallenge,
+  onAddChoiceOption,
+  onRemoveAnswerField,
   onRemoveChallenge,
+  onRemoveChoiceOption,
   onSaveConfig,
+  onUpdateAnswerField,
   onUpdateChallenge,
+  onUpdateChoiceOption,
   onUpdateRoomConfig,
 }) {
   return (
@@ -1901,6 +2165,17 @@ function AdminGameForm({
           />
         </label>
         <label>
+          סיסמת כניסה למשחק
+          <input
+            className="admin-input"
+            type="text"
+            value={config.roomConfig.gamePassword ?? ""}
+            onChange={(event) => onUpdateRoomConfig("gamePassword", event.target.value)}
+            placeholder="ריק = המשחק פתוח לכולם"
+            dir="auto"
+          />
+        </label>
+        <label>
           הודעת שגיאה בקוד הסופי
           <textarea
             className="admin-textarea compact-textarea"
@@ -1991,6 +2266,17 @@ function AdminGameForm({
                   placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
                 />
               </label>
+              <label>
+                סוג תשובה
+                <select
+                  className="admin-input"
+                  value={challenge.answerType ?? "open"}
+                  onChange={(event) => onUpdateChallenge(index, "answerType", event.target.value)}
+                >
+                  <option value="open">שדות פתוחים</option>
+                  <option value="choice">שאלה אמריקאית</option>
+                </select>
+              </label>
               <div className="admin-inline-fields">
                 <label>
                   הודעת הצלחה לשלב
@@ -2011,26 +2297,110 @@ function AdminGameForm({
                   />
                 </label>
               </div>
-              <div className="admin-inline-fields">
-                <label>
-                  תשובה
-                  <input
-                    className="admin-input"
-                    value={challenge.answer}
-                    onChange={(event) => onUpdateChallenge(index, "answer", event.target.value)}
-                    dir="auto"
-                  />
-                </label>
-                <label>
-                  חלק בקוד הסופי
-                  <input
-                    className="admin-input"
-                    value={challenge.reward}
-                    onChange={(event) => onUpdateChallenge(index, "reward", event.target.value)}
-                    dir="auto"
-                  />
-                </label>
-              </div>
+              {(challenge.answerType ?? "open") === "choice" ? (
+                <div className="nested-section">
+                  <div className="admin-section-heading">
+                    <strong>תשובות אמריקאיות</strong>
+                    <button className="ghost-button" type="button" onClick={() => onAddChoiceOption(index)}>
+                      <Plus aria-hidden="true" />
+                      הוספת אפשרות
+                    </button>
+                  </div>
+                  {(challenge.choiceOptions ?? []).map((option, optionIndex) => (
+                    <div className="admin-option-row" key={option.id ?? optionIndex}>
+                      <label>
+                        אפשרות
+                        <input
+                          className="admin-input"
+                          value={option.text}
+                          onChange={(event) => onUpdateChoiceOption(index, optionIndex, "text", event.target.value)}
+                        />
+                      </label>
+                      <label className="inline-check">
+                        <input
+                          type="radio"
+                          name={`correct-${challenge.id}`}
+                          checked={Boolean(option.correct)}
+                          onChange={() => onUpdateChoiceOption(index, optionIndex, "correct", true)}
+                        />
+                        נכונה
+                      </label>
+                      <button
+                        className="icon-button danger-button"
+                        type="button"
+                        onClick={() => onRemoveChoiceOption(index, optionIndex)}
+                        disabled={(challenge.choiceOptions ?? []).length <= 2}
+                        aria-label="מחיקת אפשרות"
+                        title="מחיקת אפשרות"
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="nested-section">
+                  <div className="admin-section-heading">
+                    <strong>שדות תשובה</strong>
+                    <button className="ghost-button" type="button" onClick={() => onAddAnswerField(index)}>
+                      <Plus aria-hidden="true" />
+                      הוספת שדה
+                    </button>
+                  </div>
+                  {(challenge.answerFields ?? []).length > 0 ? (
+                    (challenge.answerFields ?? []).map((field, fieldIndex) => (
+                      <div className="admin-option-row" key={field.id ?? fieldIndex}>
+                        <label>
+                          טקסט לפני השדה
+                          <input
+                            className="admin-input"
+                            value={field.label}
+                            onChange={(event) => onUpdateAnswerField(index, fieldIndex, "label", event.target.value)}
+                            placeholder='לדוגמה: X='
+                          />
+                        </label>
+                        <label>
+                          תשובה נכונה
+                          <input
+                            className="admin-input"
+                            value={field.answer}
+                            onChange={(event) => onUpdateAnswerField(index, fieldIndex, "answer", event.target.value)}
+                            dir="auto"
+                          />
+                        </label>
+                        <button
+                          className="icon-button danger-button"
+                          type="button"
+                          onClick={() => onRemoveAnswerField(index, fieldIndex)}
+                          aria-label="מחיקת שדה"
+                          title="מחיקת שדה"
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <label>
+                      תשובה
+                      <input
+                        className="admin-input"
+                        value={challenge.answer}
+                        onChange={(event) => onUpdateChallenge(index, "answer", event.target.value)}
+                        dir="auto"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
+              <label>
+                חלק בקוד הסופי
+                <input
+                  className="admin-input"
+                  value={challenge.reward}
+                  onChange={(event) => onUpdateChallenge(index, "reward", event.target.value)}
+                  dir="auto"
+                />
+              </label>
               <div className="admin-inline-fields">
                 <label>
                   ניקוד לשלב
@@ -2090,7 +2460,7 @@ function AdminAnalyticsPanel({ analytics }) {
           <div className="leaderboard-list compact-list">
             {analytics.leaderboard.slice(0, 8).map((player, index) => (
               <div className="leaderboard-row" key={player.id}>
-                <strong>{index + 1}</strong>
+                <strong>{index < 3 ? ["🏆", "🥈", "🥉"][index] : index + 1}</strong>
                 <span>
                   <b>{player.name}</b>
                   <small>{player.level}</small>

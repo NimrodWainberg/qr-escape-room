@@ -29,7 +29,7 @@ export const handler = async (event) => {
     return jsonResponse(404, { error: "challenge_not_found" });
   }
 
-  const correct = normalizeCode(body.answer) === normalizeCode(challenge.answer);
+  const correct = isChallengeAnswerCorrect(challenge, body);
   const player = await recordChallengeAttempt(event, challenge.id, correct, gameId);
 
   return jsonResponse(200, {
@@ -38,3 +38,17 @@ export const handler = async (event) => {
     player,
   });
 };
+
+function isChallengeAnswerCorrect(challenge, body) {
+  if (challenge.answerType === "choice") {
+    const selectedId = String(body.choiceId ?? "");
+    return challenge.choiceOptions.some((option) => option.correct && option.id === selectedId);
+  }
+
+  if (challenge.answerFields.length > 0) {
+    const answers = Array.isArray(body.answers) ? body.answers : [];
+    return challenge.answerFields.every((field, index) => normalizeCode(answers[index]) === normalizeCode(field.answer));
+  }
+
+  return normalizeCode(body.answer) === normalizeCode(challenge.answer);
+}

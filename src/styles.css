@@ -313,6 +313,13 @@ h1 {
   font-weight: 800;
 }
 
+.password-gate {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  padding: clamp(1.2rem, 4vw, 3rem);
+}
+
 .config-note {
   width: fit-content;
   margin-block: 1rem 0 0;
@@ -520,6 +527,27 @@ h1 {
   border-block-end: 0;
 }
 
+.rank-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-strong) 70%, var(--amber));
+}
+
+.rank-1 {
+  background: color-mix(in srgb, var(--amber) 38%, var(--surface-strong));
+}
+
+.rank-2 {
+  background: color-mix(in srgb, #c7ccd4 42%, var(--surface-strong));
+}
+
+.rank-3 {
+  background: color-mix(in srgb, #cd8f55 32%, var(--surface-strong));
+}
+
 .empty-state {
   margin: 0;
   padding: 1rem;
@@ -621,6 +649,46 @@ h1 {
 
 .code-form label {
   font-weight: 800;
+}
+
+.multi-answer-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.compact-code-input {
+  min-height: 3.7rem;
+  font-size: 1.35rem;
+}
+
+.choice-answer-grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.choice-answer {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 3.6rem;
+  padding: 0.8rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  cursor: pointer;
+}
+
+.choice-answer.is-selected {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 11%, var(--surface-strong));
+}
+
+.choice-answer input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--teal);
 }
 
 .code-input,
@@ -1196,6 +1264,27 @@ h1 {
   color: var(--muted);
   font-weight: 800;
   unicode-bidi: isolate;
+}
+
+.admin-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, auto) auto;
+  align-items: end;
+  gap: 0.7rem;
+}
+
+.inline-check {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 3.2rem;
+  color: var(--text) !important;
+}
+
+.inline-check input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--teal);
 }
 
 .nested-section {
