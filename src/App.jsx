@@ -152,19 +152,19 @@ function readPlayerSession() {
 
 function formatDuration(milliseconds) {
   if (!Number.isFinite(milliseconds)) {
-    return "עדיין במשחק";
+    return "0:00";
   }
 
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    return `${hours}ש ${minutes % 60}ד`;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
-  return `${minutes}ד ${String(seconds).padStart(2, "0")}ש`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 export default function App() {
@@ -218,6 +218,14 @@ export default function App() {
   useEffect(() => {
     loadLeaderboard();
   }, []);
+
+  useEffect(() => {
+    if (path === "/admin") {
+      return;
+    }
+
+    setShowLoginModal(!playerSession);
+  }, [path, playerSession]);
 
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
@@ -303,7 +311,7 @@ export default function App() {
         <nav className="nav-actions" aria-label="ניווט">
           {playerSession?.player?.name && (
             <span className="player-pill">
-              שלום {playerSession.player.name}
+              <span className="player-pill-name">שלום {playerSession.player.name}</span>
               <button type="button" onClick={logoutPlayer} aria-label="יציאה מהמשחק" title="יציאה מהמשחק">
                 <LogOut aria-hidden="true" />
               </button>
@@ -377,7 +385,17 @@ export default function App() {
           />
         ) : activeChallenge ? (
           !playerSession ? (
-            <PlayerGate onLogin={loginPlayer} />
+            <HomePage
+              challenges={challenges}
+              roomConfig={roomConfig}
+              configStatus={configStatus}
+              playerSession={playerSession}
+              solved={solved}
+              solvedCount={solvedCount}
+              onOpenLogin={() => setShowLoginModal(true)}
+              onNavigate={navigate}
+              onReset={resetProgress}
+            />
           ) : isChallengeUnlocked(challenges, activeChallenge, solved) ? (
             <ChallengePage
               challenge={activeChallenge}
@@ -400,7 +418,17 @@ export default function App() {
           )
         ) : path === "/final" ? (
           !playerSession ? (
-            <PlayerGate onLogin={loginPlayer} />
+            <HomePage
+              challenges={challenges}
+              roomConfig={roomConfig}
+              configStatus={configStatus}
+              playerSession={playerSession}
+              solved={solved}
+              solvedCount={solvedCount}
+              onOpenLogin={() => setShowLoginModal(true)}
+              onNavigate={navigate}
+              onReset={resetProgress}
+            />
           ) : areAllChallengesSolved(challenges, solved) ? (
             <FinalPage
               challenges={challenges}
@@ -435,7 +463,7 @@ export default function App() {
       </main>
 
       {showLoginModal && (
-        <Modal title="כניסה למשחק" onClose={() => setShowLoginModal(false)}>
+        <Modal title="כניסה למשחק" locked={!playerSession} onClose={() => setShowLoginModal(false)}>
           <LoginChoices
             onGuestLogin={loginPlayer}
             onRequestOtp={requestPlayerOtp}
@@ -787,7 +815,6 @@ function LeaderboardPanel({ leaderboard }) {
             <th>שלב</th>
             <th>ניקוד</th>
             <th>זמן</th>
-            <th>סטטוס</th>
           </tr>
         </thead>
         <tbody>
@@ -798,7 +825,6 @@ function LeaderboardPanel({ leaderboard }) {
               <td>{player.level}</td>
               <td>{player.points}</td>
               <td>{formatDuration(player.totalMs)}</td>
-              <td>{player.completed ? "סיים" : `${player.solvedCount}/${player.challengeCount}`}</td>
             </tr>
           ))}
         </tbody>
@@ -807,9 +833,11 @@ function LeaderboardPanel({ leaderboard }) {
   );
 }
 
-function Modal({ children, title, wide = false, onClose }) {
+function Modal({ children, title, wide = false, locked = false, onClose }) {
+  const close = locked ? undefined : onClose;
+
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <section
         className={`modal-panel ${wide ? "is-wide" : ""}`}
         role="dialog"
@@ -819,9 +847,11 @@ function Modal({ children, title, wide = false, onClose }) {
       >
         <div className="modal-heading">
           <h2>{title}</h2>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="סגירה" title="סגירה">
-            <X aria-hidden="true" />
-          </button>
+          {!locked && (
+            <button className="icon-button" type="button" onClick={onClose} aria-label="סגירה" title="סגירה">
+              <X aria-hidden="true" />
+            </button>
+          )}
         </div>
         {children}
       </section>

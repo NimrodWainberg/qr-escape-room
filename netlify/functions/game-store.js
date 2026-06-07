@@ -763,7 +763,6 @@ function summarizePlayer(player, config) {
   );
   const finalSolvedAt = player.final?.solvedAt || "";
   const completed = Boolean(finalSolvedAt);
-  const lastSolvedChallenge = solvedChallenges.at(-1) ?? null;
   const totalMs = completed
     ? msBetween(player.createdAt, finalSolvedAt)
     : msBetween(player.createdAt, player.lastSeenAt);
@@ -773,7 +772,7 @@ function summarizePlayer(player, config) {
     id: player.id,
     name: player.name,
     email: player.email,
-    level: completed ? "סיים" : lastSolvedChallenge ? lastSolvedChallenge.title : "בהתחלה",
+    level: completed ? "ניצח" : String(solvedChallenges.length),
     solvedCount: solvedChallenges.length,
     challengeCount: challenges.length,
     completed,

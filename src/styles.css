@@ -186,6 +186,10 @@ button:disabled {
   height: 1rem;
 }
 
+.player-pill-name {
+  min-width: 0;
+}
+
 main {
   width: min(1120px, calc(100% - 2rem));
   margin-inline: auto;
@@ -399,7 +403,7 @@ h1 {
 
 .leaderboard-table {
   width: 100%;
-  min-width: 42rem;
+  min-width: 34rem;
   border-collapse: collapse;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -424,6 +428,11 @@ h1 {
 
 .leaderboard-table td {
   font-weight: 800;
+}
+
+.leaderboard-table td:nth-child(5) {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .leaderboard-table td:first-child,
@@ -1507,10 +1516,47 @@ h1 {
   .topbar {
     width: min(100% - 1rem, 1120px);
     padding-block: 0.65rem;
+    gap: 0.55rem;
   }
 
   .brand-button span {
     display: none;
+  }
+
+  .nav-actions {
+    min-width: 0;
+    gap: 0.35rem;
+  }
+
+  .nav-actions .icon-button[aria-label="עמוד הבית"] {
+    display: none;
+  }
+
+  .icon-button,
+  .brand-button {
+    width: 2.8rem;
+    height: 2.8rem;
+    min-height: 2.8rem;
+    padding: 0;
+  }
+
+  .player-pill {
+    display: grid;
+    place-items: center;
+    width: 2.8rem;
+    height: 2.8rem;
+    min-height: 2.8rem;
+    padding: 0;
+  }
+
+  .player-pill-name {
+    display: none;
+  }
+
+  .player-pill button {
+    width: 100%;
+    height: 100%;
+    background: transparent;
   }
 
   main {
