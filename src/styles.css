@@ -287,21 +287,6 @@ h1 {
   gap: 1rem;
 }
 
-.login-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--muted);
-  font-weight: 900;
-}
-
-.login-divider::before,
-.login-divider::after {
-  content: "";
-  flex: 1;
-  border-block-start: 1px solid var(--line);
-}
-
 .login-copy {
   display: grid;
   gap: 0.2rem;
@@ -326,6 +311,10 @@ h1 {
   text-align: center;
   direction: ltr;
   font-size: 1.45rem;
+}
+
+.guest-switch-button {
+  width: 100%;
 }
 
 .player-login label {

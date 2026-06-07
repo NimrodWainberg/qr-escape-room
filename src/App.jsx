@@ -488,7 +488,7 @@ function HomePage({
           <span>אפשר להתחיל כאורח עם שם בלבד.</span>
           <button className="primary-button" type="button" onClick={onOpenLogin}>
             <UserRound aria-hidden="true" />
-            כניסה כאורח
+            כניסה למשחק
           </button>
         </div>
       )}
@@ -572,13 +572,27 @@ function PlayerGate({ onLogin }) {
 }
 
 function LoginChoices({ onGuestLogin, onRequestOtp, onVerifyOtp }) {
+  const [mode, setMode] = useState("email");
+
   return (
     <div className="login-choices">
-      <PlayerLoginPanel onLogin={onGuestLogin} />
-      <div className="login-divider" role="presentation">
-        <span>או</span>
-      </div>
-      <EmailOtpPanel onRequestOtp={onRequestOtp} onVerifyOtp={onVerifyOtp} />
+      {mode === "email" ? (
+        <>
+          <EmailOtpPanel onRequestOtp={onRequestOtp} onVerifyOtp={onVerifyOtp} />
+          <button className="ghost-button guest-switch-button" type="button" onClick={() => setMode("guest")}>
+            <UserRound aria-hidden="true" />
+            כניסה כאורח
+          </button>
+        </>
+      ) : (
+        <>
+          <PlayerLoginPanel onLogin={onGuestLogin} />
+          <button className="ghost-button guest-switch-button" type="button" onClick={() => setMode("email")}>
+            <Sparkles aria-hidden="true" />
+            חזרה לכניסה באימייל
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -607,7 +621,7 @@ function PlayerLoginPanel({ onLogin }) {
       <div className="login-copy">
         <p className="eyebrow">המשך כאורח</p>
         <h2>שם בלבד ומתחילים</h2>
-        <p>השם ישמש לדירוג ולסטטיסטיקות המשחק. כניסה עם קוד לאימייל זמינה אחרי הגדרת ספק אימייל.</p>
+        <p>השם ישמש לדירוג ולסטטיסטיקות המשחק.</p>
       </div>
       <label>
         שם לתצוגה
@@ -650,7 +664,7 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
       setStatus("idle");
 
       if (error.status === 409 || error.message === "email_provider_missing") {
-        setMessage("כניסה באימייל מוכנה בקוד, אבל צריך להגדיר ספק אימייל ב-Netlify לפני שליחת קודים אמיתית.");
+        setMessage("כניסה באימייל מוכנה, אבל צריך להגדיר Environment variables ב-Netlify, לא OAuth providers.");
         return;
       }
 
@@ -691,11 +705,11 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
   }
 
   return (
-    <div className="email-login">
+    <section className="email-login" aria-label="כניסה באימייל">
       <div className="login-copy">
         <p className="eyebrow">כניסה באימייל</p>
         <h2>קוד חד-פעמי</h2>
-        <p>האפשרות הזו תשלח קוד אמיתי רק אחרי שמגדירים Resend או SendGrid ב-Netlify.</p>
+        <p>הכניסו אימייל ונשלח קוד בן 6 ספרות.</p>
       </div>
 
       {step === "email" ? (
@@ -750,7 +764,7 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
       )}
 
       {message && <p className="admin-message">{message}</p>}
-    </div>
+    </section>
   );
 }
 
