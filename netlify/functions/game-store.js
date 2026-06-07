@@ -27,6 +27,7 @@ const defaultGameConfig = {
     finalSuccessButtonLabel: "חזרה לשלבים",
     finalCode: "חופשה נעימה",
     questionPoints: 10,
+    wrongAnswerPenalty: 1,
     finalBonusPoints: 50,
   },
   challenges: [
@@ -82,6 +83,23 @@ function cleanNumber(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function cleanOptionalNumber(value) {
+  if (value === "" || value === null || value === undefined) {
+    return "";
+  }
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : "";
+}
+
+function scoreNumber(value, fallback) {
+  if (value === "" || value === null || value === undefined) {
+    return fallback;
+  }
+
+  return cleanNumber(value, fallback);
+}
+
 function sanitizeChallenge(challenge, index) {
   const fallbackId = index + 1;
   const numericId = Number(challenge?.id);
@@ -94,6 +112,8 @@ function sanitizeChallenge(challenge, index) {
     question: cleanString(challenge?.question),
     answer: cleanString(challenge?.answer),
     reward: cleanString(challenge?.reward),
+    points: cleanOptionalNumber(challenge?.points),
+    wrongAnswerPenalty: cleanOptionalNumber(challenge?.wrongAnswerPenalty),
     successMessage: cleanString(challenge?.successMessage),
     errorMessage: cleanString(challenge?.errorMessage),
   };
@@ -138,6 +158,10 @@ export function sanitizeGameConfig(config) {
       ),
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
       questionPoints: cleanNumber(sourceRoomConfig.questionPoints, defaultGameConfig.roomConfig.questionPoints),
+      wrongAnswerPenalty: cleanNumber(
+        sourceRoomConfig.wrongAnswerPenalty,
+        defaultGameConfig.roomConfig.wrongAnswerPenalty,
+      ),
       finalBonusPoints: cleanNumber(sourceRoomConfig.finalBonusPoints, defaultGameConfig.roomConfig.finalBonusPoints),
     },
     challenges: sourceChallenges.map(sanitizeChallenge),
@@ -160,6 +184,7 @@ export function toPublicConfig(config) {
       finalSuccessMessage: safeConfig.roomConfig.finalSuccessMessage,
       finalSuccessButtonLabel: safeConfig.roomConfig.finalSuccessButtonLabel,
       questionPoints: safeConfig.roomConfig.questionPoints,
+      wrongAnswerPenalty: safeConfig.roomConfig.wrongAnswerPenalty,
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
     },
     challenges: safeConfig.challenges.map(({ answer, ...challenge }) => challenge),
@@ -768,18 +793,26 @@ function msBetween(start, end) {
 function summarizePlayer(player, config) {
   const challenges = config.challenges;
   const solvedChallenges = challenges.filter((challenge) => player.challenges[String(challenge.id)]?.solvedAt);
-  const wrongAttempts = Object.values(player.challenges).reduce(
-    (total, stats) => total + (Number(stats.wrongAttempts) || 0),
-    Number(player.final?.wrongAttempts) || 0,
-  );
+  const wrongAttempts = Object.values(player.challenges).reduce((total, stats) => {
+    return total + (Number(stats.wrongAttempts) || 0);
+  }, Number(player.final?.wrongAttempts) || 0);
   const finalSolvedAt = player.final?.solvedAt || "";
   const completed = Boolean(finalSolvedAt);
   const totalMs = completed
     ? msBetween(player.createdAt, finalSolvedAt)
     : msBetween(player.createdAt, player.lastSeenAt);
-  const questionPoints = Math.max(0, cleanNumber(config.roomConfig.questionPoints, 10));
+  const defaultQuestionPoints = Math.max(0, cleanNumber(config.roomConfig.questionPoints, 10));
+  const defaultWrongAnswerPenalty = Math.max(0, cleanNumber(config.roomConfig.wrongAnswerPenalty, 1));
   const finalBonusPoints = Math.max(0, cleanNumber(config.roomConfig.finalBonusPoints, 50));
-  const points = solvedChallenges.length * questionPoints + (completed ? finalBonusPoints : 0) - wrongAttempts * 5;
+  const challengePoints = solvedChallenges.reduce((total, challenge) => {
+    const stats = player.challenges[String(challenge.id)] ?? {};
+    const maxPoints = Math.max(0, scoreNumber(challenge.points, defaultQuestionPoints));
+    const penalty = Math.max(0, scoreNumber(challenge.wrongAnswerPenalty, defaultWrongAnswerPenalty));
+    const wrongCount = Number(stats.wrongAttempts) || 0;
+
+    return total + Math.max(0, maxPoints - wrongCount * penalty);
+  }, 0);
+  const points = challengePoints + (completed ? finalBonusPoints : 0);
 
   return {
     id: player.id,

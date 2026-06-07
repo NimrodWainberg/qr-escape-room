@@ -1191,6 +1191,8 @@ function createBlankChallenge(challenges) {
     question: "",
     answer: "",
     reward: "",
+    points: "",
+    wrongAnswerPenalty: "",
     successMessage: "",
     errorMessage: "",
   };
@@ -1521,7 +1523,7 @@ function AdminGameForm({
         </label>
         <div className="admin-inline-fields">
           <label>
-            ניקוד לכל שאלה
+            ניקוד ברירת מחדל לכל שאלה
             <input
               className="admin-input"
               type="number"
@@ -1531,6 +1533,19 @@ function AdminGameForm({
               onChange={(event) => onUpdateRoomConfig("questionPoints", event.target.value)}
             />
           </label>
+          <label>
+            הורדה על טעות ברירת מחדל
+            <input
+              className="admin-input"
+              type="number"
+              min="0"
+              step="1"
+              value={config.roomConfig.wrongAnswerPenalty}
+              onChange={(event) => onUpdateRoomConfig("wrongAnswerPenalty", event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="admin-inline-fields">
           <label>
             בונוס לקוד הסופי
             <input
@@ -1542,6 +1557,7 @@ function AdminGameForm({
               onChange={(event) => onUpdateRoomConfig("finalBonusPoints", event.target.value)}
             />
           </label>
+          <span className="admin-help-text">אם שאלה לא מגדירה ניקוד משלה, היא תשתמש בערכי ברירת המחדל.</span>
         </div>
         <div className="admin-inline-fields">
           <label>
@@ -1700,6 +1716,32 @@ function AdminGameForm({
                     value={challenge.reward}
                     onChange={(event) => onUpdateChallenge(index, "reward", event.target.value)}
                     dir="auto"
+                  />
+                </label>
+              </div>
+              <div className="admin-inline-fields">
+                <label>
+                  ניקוד לשלב
+                  <input
+                    className="admin-input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={challenge.points}
+                    onChange={(event) => onUpdateChallenge(index, "points", event.target.value)}
+                    placeholder={`ברירת מחדל: ${config.roomConfig.questionPoints}`}
+                  />
+                </label>
+                <label>
+                  הורדה על כל טעות
+                  <input
+                    className="admin-input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={challenge.wrongAnswerPenalty}
+                    onChange={(event) => onUpdateChallenge(index, "wrongAnswerPenalty", event.target.value)}
+                    placeholder={`ברירת מחדל: ${config.roomConfig.wrongAnswerPenalty}`}
                   />
                 </label>
               </div>
