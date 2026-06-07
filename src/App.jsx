@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Check,
   Home,
   LoaderCircle,
@@ -13,6 +14,7 @@ import {
   Sun,
   Trash2,
   Trophy,
+  UserRound,
   X,
 } from "lucide-react";
 import React from "react";
@@ -34,6 +36,8 @@ const API = {
   adminUsers: "/.netlify/functions/admin-users",
   leaderboard: "/.netlify/functions/leaderboard",
   playerLogin: "/.netlify/functions/player-login",
+  requestPlayerOtp: "/.netlify/functions/request-player-otp",
+  verifyPlayerOtp: "/.netlify/functions/verify-player-otp",
 };
 
 function isChallengeSolved(challenge, solved) {
@@ -81,12 +85,16 @@ async function postJson(url, body, token) {
     },
     body: JSON.stringify(body),
   });
+  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    const error = new Error(data?.error ?? `Request failed: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
-  return response.json();
+  return data;
 }
 
 async function putJson(url, body, token) {
@@ -165,6 +173,8 @@ export default function App() {
   const [theme, setTheme] = useState(readTheme);
   const [playerSession, setPlayerSession] = useState(readPlayerSession);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
   const [configStatus, setConfigStatus] = useState("loading");
   const { roomConfig, challenges } = gameConfig;
@@ -248,6 +258,19 @@ export default function App() {
     const session = await postJson(API.playerLogin, credentials);
     localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(session));
     setPlayerSession(session);
+    setShowLoginModal(false);
+    await loadLeaderboard();
+  }
+
+  async function requestPlayerOtp(credentials) {
+    return postJson(API.requestPlayerOtp, credentials);
+  }
+
+  async function verifyPlayerOtp(credentials) {
+    const session = await postJson(API.verifyPlayerOtp, credentials);
+    localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(session));
+    setPlayerSession(session);
+    setShowLoginModal(false);
     await loadLeaderboard();
   }
 
@@ -286,6 +309,26 @@ export default function App() {
               </button>
             </span>
           )}
+          {!playerSession && (
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setShowLoginModal(true)}
+              aria-label="כניסה למשחק"
+              title="כניסה למשחק"
+            >
+              <UserRound aria-hidden="true" />
+            </button>
+          )}
+          <button
+            className="icon-button"
+            type="button"
+            onClick={() => setShowLeaderboardModal(true)}
+            aria-label="לוח תוצאות"
+            title="לוח תוצאות"
+          >
+            <BarChart3 aria-hidden="true" />
+          </button>
           <button
             className="icon-button"
             type="button"
@@ -382,15 +425,30 @@ export default function App() {
             roomConfig={roomConfig}
             configStatus={configStatus}
             playerSession={playerSession}
-            leaderboard={leaderboard}
             solved={solved}
             solvedCount={solvedCount}
-            onLogin={loginPlayer}
+            onOpenLogin={() => setShowLoginModal(true)}
             onNavigate={navigate}
             onReset={resetProgress}
           />
         )}
       </main>
+
+      {showLoginModal && (
+        <Modal title="כניסה למשחק" onClose={() => setShowLoginModal(false)}>
+          <LoginChoices
+            onGuestLogin={loginPlayer}
+            onRequestOtp={requestPlayerOtp}
+            onVerifyOtp={verifyPlayerOtp}
+          />
+        </Modal>
+      )}
+
+      {showLeaderboardModal && (
+        <Modal title="לוח תוצאות" wide onClose={() => setShowLeaderboardModal(false)}>
+          <LeaderboardPanel leaderboard={leaderboard} />
+        </Modal>
+      )}
     </div>
   );
 }
@@ -400,10 +458,9 @@ function HomePage({
   roomConfig,
   configStatus,
   playerSession,
-  leaderboard,
   solved,
   solvedCount,
-  onLogin,
+  onOpenLogin,
   onNavigate,
   onReset,
 }) {
@@ -420,12 +477,19 @@ function HomePage({
         )}
       </div>
 
-      {!playerSession ? (
-        <PlayerLoginPanel onLogin={onLogin} />
-      ) : (
+      {playerSession ? (
         <div className="player-status">
           <strong>שלום {playerSession.player.name}</strong>
           <span>הניקוד והזמנים שלך נשמרים לדירוג.</span>
+        </div>
+      ) : (
+        <div className="player-status">
+          <strong>עדיין לא נכנסתם למשחק</strong>
+          <span>אפשר להתחיל כאורח עם שם בלבד.</span>
+          <button className="primary-button" type="button" onClick={onOpenLogin}>
+            <UserRound aria-hidden="true" />
+            כניסה כאורח
+          </button>
         </div>
       )}
 
@@ -485,8 +549,6 @@ function HomePage({
         {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
         {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
       </button>
-
-      <LeaderboardPanel leaderboard={leaderboard} />
     </section>
   );
 }
@@ -509,9 +571,20 @@ function PlayerGate({ onLogin }) {
   );
 }
 
+function LoginChoices({ onGuestLogin, onRequestOtp, onVerifyOtp }) {
+  return (
+    <div className="login-choices">
+      <PlayerLoginPanel onLogin={onGuestLogin} />
+      <div className="login-divider" role="presentation">
+        <span>או</span>
+      </div>
+      <EmailOtpPanel onRequestOtp={onRequestOtp} onVerifyOtp={onVerifyOtp} />
+    </div>
+  );
+}
+
 function PlayerLoginPanel({ onLogin }) {
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
 
@@ -521,16 +594,21 @@ function PlayerLoginPanel({ onLogin }) {
     setMessage("");
 
     try {
-      await onLogin({ name, email });
+      await onLogin({ name });
       setStatus("idle");
     } catch {
       setStatus("idle");
-      setMessage("לא הצלחנו להיכנס. בדקו שם ואימייל ונסו שוב.");
+      setMessage("לא הצלחנו להיכנס. בדקו את השם ונסו שוב.");
     }
   }
 
   return (
-    <form className="player-login" onSubmit={submitLogin}>
+    <form className="player-login guest-login" onSubmit={submitLogin}>
+      <div className="login-copy">
+        <p className="eyebrow">המשך כאורח</p>
+        <h2>שם בלבד ומתחילים</h2>
+        <p>השם ישמש לדירוג ולסטטיסטיקות המשחק. כניסה עם קוד לאימייל זמינה אחרי הגדרת ספק אימייל.</p>
+      </div>
       <label>
         שם לתצוגה
         <input
@@ -538,55 +616,202 @@ function PlayerLoginPanel({ onLogin }) {
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="איך לקרוא לך?"
-        />
-      </label>
-      <label>
-        אימייל
-        <input
-          className="admin-input"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="name@example.com"
-          dir="ltr"
+          autoFocus
         />
       </label>
       <button className="primary-button" type="submit" disabled={status === "loading"}>
-        {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Trophy aria-hidden="true" />}
-        כניסה ושמירת ניקוד
+        {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <UserRound aria-hidden="true" />}
+        המשך
       </button>
       {message && <p className="admin-message">{message}</p>}
     </form>
   );
 }
 
+function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState("email");
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState("");
+
+  async function requestOtp(event) {
+    event.preventDefault();
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      await onRequestOtp({ name, email });
+      setStep("code");
+      setStatus("idle");
+      setMessage("שלחנו קוד בן 6 ספרות לאימייל. הקוד תקף ל-10 דקות.");
+    } catch (error) {
+      setStatus("idle");
+
+      if (error.status === 409 || error.message === "email_provider_missing") {
+        setMessage("כניסה באימייל מוכנה בקוד, אבל צריך להגדיר ספק אימייל ב-Netlify לפני שליחת קודים אמיתית.");
+        return;
+      }
+
+      if (error.message === "invalid_email") {
+        setMessage("האימייל לא נראה תקין.");
+        return;
+      }
+
+      setMessage("לא הצלחנו לשלוח קוד כרגע.");
+    }
+  }
+
+  async function verifyOtp(event) {
+    event.preventDefault();
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      await onVerifyOtp({ name, email, code });
+      setStatus("idle");
+    } catch (error) {
+      setStatus("idle");
+
+      if (error.message === "otp_expired") {
+        setMessage("הקוד פג תוקף. בקשו קוד חדש.");
+        setStep("email");
+        return;
+      }
+
+      if (error.message === "otp_locked") {
+        setMessage("היו יותר מדי ניסיונות. בקשו קוד חדש.");
+        setStep("email");
+        return;
+      }
+
+      setMessage("הקוד לא נכון. בדקו את האימייל ונסו שוב.");
+    }
+  }
+
+  return (
+    <div className="email-login">
+      <div className="login-copy">
+        <p className="eyebrow">כניסה באימייל</p>
+        <h2>קוד חד-פעמי</h2>
+        <p>האפשרות הזו תשלח קוד אמיתי רק אחרי שמגדירים Resend או SendGrid ב-Netlify.</p>
+      </div>
+
+      {step === "email" ? (
+        <form className="player-login guest-login" onSubmit={requestOtp}>
+          <label>
+            שם לתצוגה
+            <input
+              className="admin-input"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="איך לקרוא לך?"
+            />
+          </label>
+          <label>
+            אימייל
+            <input
+              className="admin-input"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@example.com"
+              dir="ltr"
+            />
+          </label>
+          <button className="ghost-button" type="submit" disabled={status === "loading"}>
+            {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Sparkles aria-hidden="true" />}
+            שליחת קוד
+          </button>
+        </form>
+      ) : (
+        <form className="player-login guest-login" onSubmit={verifyOtp}>
+          <label>
+            קוד שקיבלת באימייל
+            <input
+              className="admin-input otp-input"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="123456"
+              dir="ltr"
+            />
+          </label>
+          <button className="primary-button" type="submit" disabled={status === "loading"}>
+            {status === "loading" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Check aria-hidden="true" />}
+            אימות וכניסה
+          </button>
+          <button className="ghost-button" type="button" onClick={() => setStep("email")}>
+            שינוי אימייל
+          </button>
+        </form>
+      )}
+
+      {message && <p className="admin-message">{message}</p>}
+    </div>
+  );
+}
+
 function LeaderboardPanel({ leaderboard }) {
   if (!leaderboard.length) {
-    return null;
+    return (
+      <section className="leaderboard-panel" aria-label="דירוג שחקנים">
+        <p className="empty-state">עדיין אין שחקנים בדירוג.</p>
+      </section>
+    );
   }
 
   return (
     <section className="leaderboard-panel" aria-label="דירוג שחקנים">
-      <div className="section-heading">
-        <span>
-          <p className="eyebrow">דירוג</p>
-          <h2>לוח תוצאות</h2>
-        </span>
-      </div>
-      <div className="leaderboard-list">
-        {leaderboard.slice(0, 8).map((player, index) => (
-          <div className="leaderboard-row" key={player.id}>
-            <strong>{index + 1}</strong>
-            <span>
-              <b>{player.name}</b>
-              <small>שלב: {player.level}</small>
-            </span>
-            <span>{player.points} נק'</span>
-            <span>{formatDuration(player.totalMs)}</span>
-          </div>
-        ))}
-      </div>
+      <table className="leaderboard-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>שם</th>
+            <th>שלב</th>
+            <th>ניקוד</th>
+            <th>זמן</th>
+            <th>סטטוס</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leaderboard.slice(0, 12).map((player, index) => (
+            <tr key={player.id}>
+              <td>{index + 1}</td>
+              <td>{player.name}</td>
+              <td>{player.level}</td>
+              <td>{player.points}</td>
+              <td>{formatDuration(player.totalMs)}</td>
+              <td>{player.completed ? "סיים" : `${player.solvedCount}/${player.challengeCount}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
+  );
+}
+
+function Modal({ children, title, wide = false, onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className={`modal-panel ${wide ? "is-wide" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modal-heading">
+          <h2>{title}</h2>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="סגירה" title="סגירה">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
   );
 }
 
@@ -929,6 +1154,7 @@ function createBlankChallenge(challenges) {
 
 function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
   const [token, setToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
+  const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -980,7 +1206,11 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
     setMessage("");
 
     try {
-      const response = await postJson(API.adminLogin, { password });
+      const identifier = adminIdentifier.trim();
+      const response = await postJson(API.adminLogin, {
+        password,
+        ...(identifier.includes("@") ? { email: identifier } : { username: identifier }),
+      });
       localStorage.setItem(ADMIN_TOKEN_KEY, response.token);
       setPassword("");
       setToken(response.token);
@@ -1096,10 +1326,20 @@ function AdminPage({ fallbackConfig, onPublicConfigChange, onResetProgress }) {
         </div>
 
         <form className="code-form" onSubmit={submitLogin}>
+          <label htmlFor="admin-identifier">שם משתמש או אימייל</label>
+          <input
+            id="admin-identifier"
+            className="admin-input"
+            autoComplete="username"
+            value={adminIdentifier}
+            onChange={(event) => setAdminIdentifier(event.target.value)}
+            placeholder="admin"
+            dir="ltr"
+          />
           <label htmlFor="admin-password">סיסמת אדמין</label>
           <input
             id="admin-password"
-            className="final-input"
+            className="admin-input"
             type="password"
             autoComplete="current-password"
             value={password}

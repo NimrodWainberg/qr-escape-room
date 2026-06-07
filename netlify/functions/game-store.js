@@ -6,9 +6,12 @@ const CONFIG_KEY = "game-config-v1";
 const ADMIN_USERS_KEY = "admin-users-v1";
 const PLAYERS_KEY = "players-v1";
 const PLAYER_KEY_PREFIX = "players-v2/";
+const OTP_KEY_PREFIX = "player-otp-v1/";
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const PLAYER_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const PLAYER_EVENT_LIMIT = 200;
+const OTP_TTL_MS = 10 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
 
 const defaultGameConfig = {
   roomConfig: {
@@ -188,6 +191,10 @@ function normalizeEmail(email) {
   return String(email ?? "").trim().toLowerCase();
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString("base64url")) {
   return {
     salt,
@@ -206,6 +213,94 @@ function verifyPassword(password, passwordRecord) {
 
 function createTemporaryPassword() {
   return crypto.randomBytes(9).toString("base64url");
+}
+
+function createOtpCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashOtp(email, code) {
+  return crypto
+    .createHmac("sha256", getTokenSecret())
+    .update(`${normalizeEmail(email)}:${String(code).trim()}`)
+    .digest("base64url");
+}
+
+function getOtpKey(email) {
+  return `${OTP_KEY_PREFIX}${hashToken(normalizeEmail(email))}`;
+}
+
+function getEmailProvider() {
+  const from = process.env.OTP_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || "";
+
+  if (process.env.RESEND_API_KEY && from) {
+    return { name: "resend", from, apiKey: process.env.RESEND_API_KEY };
+  }
+
+  if (process.env.SENDGRID_API_KEY && from) {
+    return { name: "sendgrid", from, apiKey: process.env.SENDGRID_API_KEY };
+  }
+
+  return null;
+}
+
+async function sendOtpEmail({ email, name, code }) {
+  const provider = getEmailProvider();
+
+  if (!provider) {
+    return { sent: false, configured: false };
+  }
+
+  const subject = "קוד כניסה לחדר בריחה";
+  const safeName = cleanString(name, "שחקן").trim() || "שחקן";
+  const text = `שלום ${safeName}, קוד הכניסה שלך הוא ${code}. הקוד תקף ל-10 דקות.`;
+  const html = `<p dir="rtl">שלום ${safeName},</p><p dir="rtl">קוד הכניסה שלך הוא <strong>${code}</strong>.</p><p dir="rtl">הקוד תקף ל-10 דקות.</p>`;
+
+  if (provider.name === "resend") {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${provider.apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        from: provider.from,
+        to: email,
+        subject,
+        text,
+        html,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("email_failed");
+    }
+
+    return { sent: true, configured: true, provider: provider.name };
+  }
+
+  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${provider.apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email }] }],
+      from: { email: provider.from },
+      subject,
+      content: [
+        { type: "text/plain", value: text },
+        { type: "text/html", value: html },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("email_failed");
+  }
+
+  return { sent: true, configured: true, provider: provider.name };
 }
 
 function createSignedToken(payload, ttlMs) {
@@ -446,6 +541,91 @@ export async function createPlayerSession({ name, email }) {
     token,
     player: publicPlayer(player),
   };
+}
+
+export async function requestPlayerOtp({ name, email }) {
+  if (!getTokenSecret()) {
+    throw new Error("otp_secret_missing");
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!isValidEmail(normalizedEmail)) {
+    throw new Error("invalid_email");
+  }
+
+  if (!getEmailProvider()) {
+    return {
+      configured: false,
+      message: "email_provider_missing",
+    };
+  }
+
+  const code = createOtpCode();
+  const now = Date.now();
+  const store = getStore(STORE_NAME);
+
+  await store.setJSON(getOtpKey(normalizedEmail), {
+    email: normalizedEmail,
+    name: cleanString(name, "אורח"),
+    codeHash: hashOtp(normalizedEmail, code),
+    createdAt: now,
+    expiresAt: now + OTP_TTL_MS,
+    attempts: 0,
+  });
+
+  await sendOtpEmail({ email: normalizedEmail, name, code });
+
+  return {
+    configured: true,
+    sent: true,
+    expiresInSeconds: Math.round(OTP_TTL_MS / 1000),
+  };
+}
+
+export async function verifyPlayerOtp({ name, email, code }) {
+  if (!getTokenSecret()) {
+    throw new Error("otp_secret_missing");
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  const cleanCode = String(code ?? "").trim();
+
+  if (!isValidEmail(normalizedEmail) || !/^\d{6}$/.test(cleanCode)) {
+    throw new Error("invalid_otp");
+  }
+
+  const store = getStore(STORE_NAME);
+  const otpKey = getOtpKey(normalizedEmail);
+  const record = await store.get(otpKey, { type: "json" });
+
+  if (!record?.codeHash || record.email !== normalizedEmail) {
+    throw new Error("invalid_otp");
+  }
+
+  if (Date.now() > Number(record.expiresAt)) {
+    await store.delete(otpKey);
+    throw new Error("otp_expired");
+  }
+
+  if (Number(record.attempts) >= OTP_MAX_ATTEMPTS) {
+    await store.delete(otpKey);
+    throw new Error("otp_locked");
+  }
+
+  if (!safeCompare(record.codeHash, hashOtp(normalizedEmail, cleanCode))) {
+    await store.setJSON(otpKey, {
+      ...record,
+      attempts: Number(record.attempts) + 1,
+    });
+    throw new Error("invalid_otp");
+  }
+
+  await store.delete(otpKey);
+  return createPlayerSession({
+    name: cleanString(name, record.name),
+    email: normalizedEmail,
+  });
 }
 
 async function getPlayerSession(event) {

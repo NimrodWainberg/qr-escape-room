@@ -143,6 +143,24 @@ netlify env:set ADMIN_TOKEN_SECRET "long-random-secret"
 
 אחרי שינוי משתני סביבה צריך לבצע redeploy.
 
+### כניסה עם קוד לאימייל
+
+המשחק תומך גם ב-OTP אמיתי דרך Netlify Functions. כדי להפעיל שליחת אימיילים צריך להגדיר ספק אחד:
+
+```text
+OTP_FROM_EMAIL
+RESEND_API_KEY
+```
+
+או:
+
+```text
+OTP_FROM_EMAIL
+SENDGRID_API_KEY
+```
+
+בלי אחד מהמפתחות האלה, הכניסה כאורח תעבוד כרגיל והאפשרות של קוד לאימייל תציג הודעת הגדרה חסרה.
+
 ## פריסה ב-Netlify
 
 הפרויקט כבר כולל `netlify.toml` וקובץ redirects, כך שכתובות כמו `/q/1` ו-`/final` יעבדו גם אחרי רענון הדף.
@@ -175,6 +193,8 @@ netlify deploy --prod --dir dist --functions netlify/functions
 - `check-final` בודק את הפתרון הסופי.
 - `admin-login` ו-`admin-config` מנהלים את אזור הניהול.
 - `player-login` שומר שחקן לצורך ניקוד.
+- `request-player-otp` יוצר קוד חד-פעמי ושולח אותו באימייל אם הוגדר ספק.
+- `verify-player-otp` מאמת את הקוד ויוצר session לשחקן.
 - `leaderboard` מחזיר לוח תוצאות ציבורי.
 - `admin-analytics` מחזיר נתוני שימוש לאדמין.
 
@@ -197,9 +217,14 @@ netlify deploy --prod --dir dist --functions netlify/functions
 │   └── functions/
 │       ├── admin-config.js
 │       ├── admin-login.js
+│       ├── admin-users.js
 │       ├── check-answer.js
 │       ├── check-final.js
 │       ├── game-store.js
+│       ├── leaderboard.js
+│       ├── player-login.js
+│       ├── request-player-otp.js
+│       ├── verify-player-otp.js
 │       └── public-config.js
 ├── public/
 │   └── _redirects
