@@ -1,10 +1,12 @@
 import {
   BarChart3,
   Check,
+  LockKeyhole,
   Home,
   LoaderCircle,
   LogOut,
   Moon,
+  Pencil,
   Plus,
   QrCode,
   RefreshCcw,
@@ -25,6 +27,7 @@ const STORAGE_KEY = "qr-escape-room-solved-v1";
 const THEME_KEY = "qr-escape-room-theme-v1";
 const ADMIN_TOKEN_KEY = "qr-escape-room-admin-token-v1";
 const PLAYER_SESSION_KEY = "qr-escape-room-player-session-v1";
+const PLAYER_PROFILE_KEY = "qr-escape-room-player-profile-v1";
 const GAME_ACCESS_KEY = "qr-escape-room-game-access-v1";
 const DEFAULT_GAME_ID = "main";
 
@@ -59,23 +62,35 @@ function normalizeGameId(value) {
 function getRouteInfo(pathname) {
   const parts = pathname.split("/").filter(Boolean);
 
+  if (parts[0] === DEFAULT_GAME_ID) {
+    return {
+      gameId: DEFAULT_GAME_ID,
+      gamePath: `/${parts.slice(1).join("/")}` || "/",
+      isLobby: false,
+    };
+  }
+
   if (parts[0] === "g" && parts[1]) {
     return {
       gameId: normalizeGameId(parts[1]),
       gamePath: `/${parts.slice(2).join("/")}` || "/",
+      isLobby: false,
     };
   }
 
-  return { gameId: DEFAULT_GAME_ID, gamePath: pathname || "/" };
+  return { gameId: DEFAULT_GAME_ID, gamePath: pathname || "/", isLobby: pathname === "/" || !pathname };
 }
 
 function buildPath(gameId, gamePath) {
   const cleanGamePath = gamePath.startsWith("/") ? gamePath : `/${gamePath}`;
-  return normalizeGameId(gameId) === DEFAULT_GAME_ID ? cleanGamePath : `/g/${normalizeGameId(gameId)}${cleanGamePath}`;
+  return normalizeGameId(gameId) === DEFAULT_GAME_ID ? `/${DEFAULT_GAME_ID}${cleanGamePath}` : `/g/${normalizeGameId(gameId)}${cleanGamePath}`;
 }
 
 function buildDirectGamePath(gameId, gamePath = "/") {
   const cleanGamePath = gamePath.startsWith("/") ? gamePath : `/${gamePath}`;
+  if (normalizeGameId(gameId) === DEFAULT_GAME_ID) {
+    return `/${DEFAULT_GAME_ID}${cleanGamePath}`;
+  }
   return `/g/${normalizeGameId(gameId)}${cleanGamePath}`;
 }
 
@@ -223,6 +238,14 @@ function readPlayerSession(gameId = DEFAULT_GAME_ID) {
   }
 }
 
+function readPlayerProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(PLAYER_PROFILE_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function readGameAccess(gameId = DEFAULT_GAME_ID) {
   try {
     return localStorage.getItem(storageKeyForGame(GAME_ACCESS_KEY, gameId)) === "unlocked";
@@ -250,10 +273,11 @@ function formatDuration(milliseconds) {
 
 export default function App() {
   const [routeInfo, setRouteInfo] = useState(() => getRouteInfo(window.location.pathname));
-  const { gameId, gamePath: path } = routeInfo;
+  const { gameId, gamePath: path, isLobby } = routeInfo;
   const [solved, setSolved] = useState(() => readSolved(gameId));
   const [theme, setTheme] = useState(readTheme);
   const [playerSession, setPlayerSession] = useState(() => readPlayerSession(gameId));
+  const [playerProfile, setPlayerProfile] = useState(readPlayerProfile);
   const [leaderboard, setLeaderboard] = useState([]);
   const [publicGames, setPublicGames] = useState([]);
   const [gameUnlocked, setGameUnlocked] = useState(() => readGameAccess(gameId));
@@ -317,13 +341,46 @@ export default function App() {
   }, [gameId]);
 
   useEffect(() => {
-    if (path === "/admin" || (gameId === DEFAULT_GAME_ID && path === "/")) {
+    if (path === "/admin" || isLobby || playerSession || !playerProfile) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function createSessionFromProfile() {
+      try {
+        const session = await postJson(API.playerLogin, { ...playerProfile, gameId });
+        const sessionWithGame = { ...session, gameId };
+        localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(sessionWithGame));
+
+        if (!cancelled) {
+          setPlayerSession(sessionWithGame);
+          setShowLoginModal(false);
+          await loadLeaderboard();
+        }
+      } catch {
+        if (!cancelled) {
+          setPlayerProfile(null);
+          localStorage.removeItem(PLAYER_PROFILE_KEY);
+        }
+      }
+    }
+
+    createSessionFromProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, isLobby, path, playerProfile, playerSession]);
+
+  useEffect(() => {
+    if (path === "/admin" || isLobby) {
       setShowLoginModal(false);
       return;
     }
 
-    setShowLoginModal(!playerSession);
-  }, [gameId, path, playerSession]);
+    setShowLoginModal(!playerSession && !playerProfile);
+  }, [gameId, isLobby, path, playerProfile, playerSession]);
 
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
@@ -334,20 +391,26 @@ export default function App() {
 
   function navigate(nextPath) {
     window.history.pushState({}, "", buildPath(gameId, nextPath));
-    setRouteInfo({ gameId, gamePath: nextPath });
+    setRouteInfo({ gameId, gamePath: nextPath, isLobby: false });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function navigateToGame(nextGameId, nextPath = "/") {
     const nextId = normalizeGameId(nextGameId);
     window.history.pushState({}, "", buildDirectGamePath(nextId, nextPath));
-    setRouteInfo({ gameId: nextId, gamePath: nextPath });
+    setRouteInfo({ gameId: nextId, gamePath: nextPath, isLobby: false });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function navigateAdmin() {
     window.history.pushState({}, "", "/admin");
-    setRouteInfo({ gameId, gamePath: "/admin" });
+    setRouteInfo({ gameId, gamePath: "/admin", isLobby: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function navigateLobby() {
+    window.history.pushState({}, "", "/");
+    setRouteInfo({ gameId: DEFAULT_GAME_ID, gamePath: "/", isLobby: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -390,8 +453,12 @@ export default function App() {
 
   async function loginPlayer(credentials) {
     const session = await postJson(API.playerLogin, { ...credentials, gameId });
-    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(session));
-    setPlayerSession(session);
+    const sessionWithGame = { ...session, gameId };
+    const profile = { name: credentials.name, email: credentials.email ?? "" };
+    localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
+    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(sessionWithGame));
+    setPlayerProfile(profile);
+    setPlayerSession(sessionWithGame);
     setShowLoginModal(false);
     await loadLeaderboard();
   }
@@ -402,8 +469,12 @@ export default function App() {
 
   async function verifyPlayerOtp(credentials) {
     const session = await postJson(API.verifyPlayerOtp, { ...credentials, gameId });
-    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(session));
-    setPlayerSession(session);
+    const sessionWithGame = { ...session, gameId };
+    const profile = { name: credentials.name, email: credentials.email ?? "" };
+    localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
+    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(sessionWithGame));
+    setPlayerProfile(profile);
+    setPlayerSession(sessionWithGame);
     setShowLoginModal(false);
     await loadLeaderboard();
   }
@@ -420,7 +491,9 @@ export default function App() {
 
   function logoutPlayer() {
     localStorage.removeItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId));
+    localStorage.removeItem(PLAYER_PROFILE_KEY);
     localStorage.removeItem(storageKeyForGame(STORAGE_KEY, gameId));
+    setPlayerProfile(null);
     setPlayerSession(null);
     setSolved({});
   }
@@ -429,7 +502,7 @@ export default function App() {
     <div className="app-shell">
       <AnimatedBackdrop />
       <header className="topbar">
-        <button className="brand-button" type="button" onClick={() => navigate("/")}>
+        <button className="brand-button" type="button" onClick={navigateLobby}>
           <QrCode aria-hidden="true" />
           <span>{roomConfig.title}</span>
         </button>
@@ -466,7 +539,7 @@ export default function App() {
           <button
             className="icon-button"
             type="button"
-            onClick={() => navigate("/")}
+            onClick={navigateLobby}
             aria-label="עמוד הבית"
             title="עמוד הבית"
           >
@@ -510,13 +583,13 @@ export default function App() {
             onGameChange={(nextGameId) => {
               const nextId = normalizeGameId(nextGameId);
               window.history.pushState({}, "", "/admin");
-              setRouteInfo({ gameId: nextId, gamePath: "/admin" });
+              setRouteInfo({ gameId: nextId, gamePath: "/admin", isLobby: false });
             }}
             onPublicConfigChange={(publicConfig) => setGameConfig(publicConfig)}
             onResetProgress={resetProgress}
             onPublicGamesRefresh={loadPublicGames}
           />
-        ) : gameId === DEFAULT_GAME_ID && path === "/" ? (
+        ) : isLobby ? (
           <GamesDirectoryPage
             games={publicGames}
             roomConfig={roomConfig}
@@ -606,7 +679,7 @@ export default function App() {
       </main>
 
       {showLoginModal && (
-        <Modal title="כניסה למשחק" locked={!playerSession} onClose={() => setShowLoginModal(false)}>
+        <Modal title="כניסה למשחק" onClose={() => setShowLoginModal(false)}>
           <LoginChoices
             onGuestLogin={loginPlayer}
             onRequestOtp={requestPlayerOtp}
@@ -627,24 +700,31 @@ export default function App() {
 function GamesDirectoryPage({ games, roomConfig, onNavigateToGame }) {
   return (
     <section className="hero-section games-directory">
-      <div className="hero-copy">
-        <p className="eyebrow">בחרו משחק</p>
-        <h1>{roomConfig.title || "חדר בריחה"}</h1>
-        <p>בחרו חדר והתחילו לפתור את הקודים.</p>
+      <div className="games-hero">
+        <span className="round-badge games-hero-badge">
+          <QrCode aria-hidden="true" />
+        </span>
+        <div className="hero-copy">
+          <p className="eyebrow">לובי המשחקים</p>
+          <h1>{roomConfig.title || "חדר בריחה"}</h1>
+          <p>בחרו חדר, היכנסו למשימה, ואספו רמזים בדרך לקוד הסופי.</p>
+        </div>
       </div>
 
       {games.length > 0 ? (
         <div className="game-picker-grid">
           {games.map((game) => (
             <button className="game-picker-card" key={game.id} type="button" onClick={() => onNavigateToGame(game.id)}>
-              <span className="round-badge">
+              <span className={`game-card-icon ${game.locked ? "is-locked" : ""}`}>
                 {game.locked ? <LockKeyhole aria-hidden="true" /> : <QrCode aria-hidden="true" />}
               </span>
               <span>
                 <strong>{game.title}</strong>
-                <small dir="ltr">{game.locked ? `נעול · /g/${game.id}` : `/g/${game.id}`}</small>
+                <small>{game.locked ? "נדרשת סיסמה" : "פתוח למשחק"}</small>
               </span>
-              <Sparkles aria-hidden="true" />
+              <span className="game-card-path" dir="ltr">
+                {game.id === DEFAULT_GAME_ID ? "/main" : `/g/${game.id}`}
+              </span>
             </button>
           ))}
         </div>
@@ -1502,6 +1582,8 @@ function AdminPage({
   const [games, setGames] = useState([]);
   const [newGameTitle, setNewGameTitle] = useState("");
   const [newGameId, setNewGameId] = useState("");
+  const [editingGame, setEditingGame] = useState(null);
+  const [editingGameConfig, setEditingGameConfig] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
   const [newAdminName, setNewAdminName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -1788,6 +1870,58 @@ function AdminPage({
     }
   }
 
+  async function openGameEditor(game) {
+    setMessage("");
+    setEditingGame(game);
+    setEditingGameConfig(null);
+
+    try {
+      const nextConfig = await getJson(withGame(API.adminConfig, game.id), token);
+      setEditingGameConfig(nextConfig);
+    } catch {
+      setMessage("לא הצלחנו לפתוח את עריכת המשחק.");
+      setEditingGame(null);
+    }
+  }
+
+  function updateEditingGameRoomConfig(field, value) {
+    setEditingGameConfig((current) => ({
+      ...current,
+      roomConfig: {
+        ...current.roomConfig,
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveGameEdit(event) {
+    event.preventDefault();
+
+    if (!editingGame || !editingGameConfig) {
+      return;
+    }
+
+    setMessage("");
+
+    try {
+      const response = await putJson(withGame(API.adminConfig, editingGame.id), editingGameConfig, token);
+      const gamesResponse = await getJson(API.adminGames, token);
+      setGames(gamesResponse.games ?? []);
+
+      if (editingGame.id === gameId) {
+        setConfig(response.config);
+        onPublicConfigChange(response.publicConfig);
+      }
+
+      onPublicGamesRefresh();
+      setEditingGame(null);
+      setEditingGameConfig(null);
+      setMessage("פרטי המשחק נשמרו.");
+    } catch {
+      setMessage("לא הצלחנו לשמור את פרטי המשחק.");
+    }
+  }
+
   function logout() {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken("");
@@ -1934,10 +2068,49 @@ function AdminPage({
           newGameTitle={newGameTitle}
           onCreateGame={createNewGame}
           onDeleteGame={deleteExistingGame}
+          onEditGame={openGameEditor}
           onGameChange={onGameChange}
           onNewGameIdChange={setNewGameId}
           onNewGameTitleChange={setNewGameTitle}
         />
+      )}
+
+      {editingGame && (
+        <Modal title="עריכת משחק" onClose={() => setEditingGame(null)}>
+          <form className="admin-form" onSubmit={saveGameEdit}>
+            {!editingGameConfig ? (
+              <p className="admin-message">טוען...</p>
+            ) : (
+              <>
+                <label>
+                  שם המשחק
+                  <input
+                    className="admin-input"
+                    value={editingGameConfig.roomConfig.title}
+                    onChange={(event) => updateEditingGameRoomConfig("title", event.target.value)}
+                  />
+                </label>
+                <label>
+                  סיסמת כניסה למשחק
+                  <input
+                    className="admin-input"
+                    value={editingGameConfig.roomConfig.gamePassword ?? ""}
+                    onChange={(event) => updateEditingGameRoomConfig("gamePassword", event.target.value)}
+                    placeholder="ריק = המשחק פתוח לכולם"
+                    dir="auto"
+                  />
+                </label>
+                <p className="admin-help-text" dir="ltr">
+                  {editingGame.id === DEFAULT_GAME_ID ? "/main" : `/g/${editingGame.id}`}
+                </p>
+                <button className="primary-button" type="submit">
+                  <Save aria-hidden="true" />
+                  שמירה
+                </button>
+              </>
+            )}
+          </form>
+        </Modal>
       )}
 
       {activeAdminTab === "analytics" && analytics && <AdminAnalyticsPanel analytics={analytics} />}
@@ -1984,6 +2157,7 @@ function AdminGamesPanel({
   newGameTitle,
   onCreateGame,
   onDeleteGame,
+  onEditGame,
   onGameChange,
   onNewGameIdChange,
   onNewGameTitleChange,
@@ -2000,7 +2174,16 @@ function AdminGamesPanel({
           <div className={`admin-game-card ${game.id === currentGameId ? "is-active" : ""}`} key={game.id}>
             <button className="admin-game-main" type="button" onClick={() => onGameChange(game.id)}>
               <strong>{game.title}</strong>
-              <span dir="ltr">{`/g/${game.id}`}</span>
+              <span dir="ltr">{game.id === DEFAULT_GAME_ID ? "/main" : `/g/${game.id}`}</span>
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => onEditGame(game)}
+              aria-label={`עריכת ${game.title}`}
+              title={`עריכת ${game.title}`}
+            >
+              <Pencil aria-hidden="true" />
             </button>
             <button
               className="icon-button danger-button"
@@ -2161,17 +2344,6 @@ function AdminGameForm({
             className="admin-input"
             value={config.roomConfig.finalCode}
             onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)}
-            dir="auto"
-          />
-        </label>
-        <label>
-          סיסמת כניסה למשחק
-          <input
-            className="admin-input"
-            type="text"
-            value={config.roomConfig.gamePassword ?? ""}
-            onChange={(event) => onUpdateRoomConfig("gamePassword", event.target.value)}
-            placeholder="ריק = המשחק פתוח לכולם"
             dir="auto"
           />
         </label>

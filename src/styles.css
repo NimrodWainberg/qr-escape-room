@@ -244,27 +244,54 @@ h1 {
 }
 
 .games-directory {
-  min-height: min(42rem, calc(100vh - 8rem));
+  min-height: min(46rem, calc(100vh - 8rem));
   align-content: center;
+  gap: clamp(1.4rem, 4vw, 3rem);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 10%, transparent), transparent 45%),
+    linear-gradient(315deg, color-mix(in srgb, var(--amber) 16%, transparent), transparent 48%),
+    var(--surface);
+}
+
+.games-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.games-hero-badge {
+  width: clamp(4rem, 9vw, 6.5rem);
+  height: clamp(4rem, 9vw, 6.5rem);
+  background: linear-gradient(135deg, var(--teal), var(--violet));
+  color: white;
+  box-shadow: 0 20px 45px color-mix(in srgb, var(--teal) 22%, transparent);
+}
+
+.games-hero-badge svg {
+  width: 42%;
+  height: 42%;
 }
 
 .game-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
 }
 
 .game-picker-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.85rem;
-  min-height: 6.2rem;
-  padding: 1rem;
+  min-height: 8rem;
+  padding: 1.1rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: var(--surface-strong);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.08);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 8%, transparent), transparent),
+    var(--surface-strong);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   text-align: start;
   transition:
@@ -274,24 +301,57 @@ h1 {
 }
 
 .game-picker-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: color-mix(in srgb, var(--teal) 58%, var(--line));
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.14);
+}
+
+.game-card-icon {
+  display: grid;
+  place-items: center;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, var(--amber), var(--coral));
+  color: #202124;
+}
+
+.game-card-icon.is-locked {
+  background: linear-gradient(135deg, var(--violet), var(--teal));
+  color: white;
+}
+
+.game-card-icon svg {
+  width: 1.6rem;
+  height: 1.6rem;
 }
 
 .game-picker-card span:nth-child(2) {
   display: grid;
+  gap: 0.1rem;
   min-width: 0;
 }
 
 .game-picker-card strong {
-  font-size: 1.15rem;
+  font-size: clamp(1.18rem, 2.5vw, 1.45rem);
   font-weight: 900;
 }
 
 .game-picker-card small {
   color: var(--muted);
   font-weight: 800;
+}
+
+.game-card-path {
+  grid-column: 1 / -1;
+  width: fit-content;
+  padding-block: 0.25rem;
+  padding-inline: 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 900;
   unicode-bidi: isolate;
 }
 
@@ -1231,7 +1291,7 @@ h1 {
 
 .admin-game-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
