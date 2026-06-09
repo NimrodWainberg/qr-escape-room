@@ -41,6 +41,7 @@ const API = {
   adminConfig: "/.netlify/functions/admin-config",
   adminAnalytics: "/.netlify/functions/admin-analytics",
   adminGames: "/.netlify/functions/admin-games",
+  adminSettings: "/.netlify/functions/admin-settings",
   adminUsers: "/.netlify/functions/admin-users",
   leaderboard: "/.netlify/functions/leaderboard",
   playerLogin: "/.netlify/functions/player-login",
@@ -1586,6 +1587,7 @@ function AdminPage({
   const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
+  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true });
   const [analytics, setAnalytics] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState("games");
   const [games, setGames] = useState([]);
@@ -1620,12 +1622,14 @@ function AdminPage({
       setConfig(nextConfig);
       setAnalytics(nextAnalytics);
       try {
-        const [usersResponse, gamesResponse] = await Promise.all([
+        const [usersResponse, gamesResponse, settingsResponse] = await Promise.all([
           getJson(API.adminUsers, activeToken),
           getJson(API.adminGames, activeToken),
+          getJson(API.adminSettings, activeToken),
         ]);
         setAdminUsers(usersResponse.users ?? []);
         setGames(gamesResponse.games ?? []);
+        setGlobalSettings(settingsResponse);
       } catch {
         setAdminUsers([]);
       }
@@ -1667,6 +1671,31 @@ function AdminPage({
         [field]: value,
       },
     }));
+  }
+
+  function updateGlobalSetting(field, value) {
+    setGlobalSettings((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function saveGlobalSettings(event) {
+    event.preventDefault();
+    setStatus("saving");
+    setMessage("");
+
+    try {
+      const nextSettings = await putJson(API.adminSettings, globalSettings, token);
+      const publicConfig = await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId));
+      setGlobalSettings(nextSettings);
+      onPublicConfigChange(publicConfig);
+      setStatus("ready");
+      setMessage("ההגדרות הכלליות נשמרו לכל המשחקים.");
+    } catch {
+      setStatus("ready");
+      setMessage("שמירת ההגדרות הכלליות נכשלה.");
+    }
   }
 
   function updateChallenge(index, field, value) {
@@ -1957,6 +1986,7 @@ function AdminPage({
     setToken("");
     setConfig(null);
     setAnalytics(null);
+    setGlobalSettings({ showEmailLogin: true });
     setAdminUsers([]);
     setGames([]);
     setStatus("idle");
@@ -2052,6 +2082,15 @@ function AdminPage({
 
       <div className="admin-tabs" role="tablist" aria-label="אזורי ניהול">
         <button
+          className={activeAdminTab === "global" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeAdminTab === "global"}
+          onClick={() => setActiveAdminTab("global")}
+        >
+          כללי
+        </button>
+        <button
           className={activeAdminTab === "games" ? "is-active" : ""}
           type="button"
           role="tab"
@@ -2088,6 +2127,16 @@ function AdminPage({
           נתונים
         </button>
       </div>
+
+      {activeAdminTab === "global" && (
+        <AdminGlobalSettingsPanel
+          message={message}
+          settings={globalSettings}
+          status={status}
+          onSave={saveGlobalSettings}
+          onUpdate={updateGlobalSetting}
+        />
+      )}
 
       {activeAdminTab === "games" && (
         <AdminGamesPanel
@@ -2277,6 +2326,35 @@ function AdminGamesPanel({
   );
 }
 
+function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate }) {
+  return (
+    <form className="admin-form" onSubmit={onSave}>
+      <fieldset className="admin-section">
+        <legend>הגדרות כלליות לכל המשחקים</legend>
+        <label className="inline-check setting-check">
+          <input
+            type="checkbox"
+            checked={settings.showEmailLogin !== false}
+            onChange={(event) => onUpdate("showEmailLogin", event.target.checked)}
+          />
+          הצגת כניסה עם אימייל וקוד חד-פעמי
+        </label>
+        <p className="admin-help-text">
+          כשהאפשרות כבויה, כל המשחקים יציגו רק כניסה עם שם. כשהיא פעילה, השחקן יוכל לבחור גם כניסה באימייל.
+        </p>
+      </fieldset>
+
+      <div className="admin-actions">
+        <button className="primary-button" type="submit" disabled={status === "saving"}>
+          {status === "saving" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Save aria-hidden="true" />}
+          {status === "saving" ? "שומר..." : "שמירה"}
+        </button>
+        {message && <span className="admin-message">{message}</span>}
+      </div>
+    </form>
+  );
+}
+
 function AdminGameForm({
   config,
   message,
@@ -2392,14 +2470,6 @@ function AdminGameForm({
             />
           </label>
         </div>
-        <label className="inline-check setting-check">
-          <input
-            type="checkbox"
-            checked={config.roomConfig.showEmailLogin !== false}
-            onChange={(event) => onUpdateRoomConfig("showEmailLogin", event.target.checked)}
-          />
-          הצגת כניסה עם אימייל וקוד חד-פעמי
-        </label>
         <label>
           פתרון סופי
           <input

@@ -1,6 +1,7 @@
 import {
   getGameConfig,
   getGameIdFromEvent,
+  getGlobalSettings,
   initBlobContext,
   jsonResponse,
   methodNotAllowed,
@@ -14,7 +15,7 @@ export const handler = async (event) => {
 
   initBlobContext(event);
   const gameId = getGameIdFromEvent(event);
-  const config = await getGameConfig(gameId);
+  const [config, globalSettings] = await Promise.all([getGameConfig(gameId), getGlobalSettings()]);
 
-  return jsonResponse(200, { ...toPublicConfig(config), gameId });
+  return jsonResponse(200, { ...toPublicConfig(config, globalSettings), gameId });
 };

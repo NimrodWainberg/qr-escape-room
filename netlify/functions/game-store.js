@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 const STORE_NAME = "qr-escape-room";
 const DEFAULT_GAME_ID = "main";
 const GAMES_KEY = "games-v1";
+const GLOBAL_SETTINGS_KEY = "global-settings-v1";
 const CONFIG_KEY = "game-config-v1";
 const CONFIG_KEY_PREFIX = "game-config-v2/";
 const ADMIN_USERS_KEY = "admin-users-v1";
@@ -43,6 +44,10 @@ const defaultGameConfig = {
     { id: 4, path: "/q/4", title: "קוד 4", question: "", answer: "4", reward: "נע" },
     { id: 5, path: "/q/5", title: "קוד 5", question: "", answer: "5", reward: "ימה" },
   ],
+};
+
+const defaultGlobalSettings = {
+  showEmailLogin: true,
 };
 
 export function initBlobContext(event) {
@@ -144,6 +149,14 @@ function scoreNumber(value, fallback) {
 
 function cleanAnswerInputMode(value) {
   return ["auto", "numeric", "text"].includes(value) ? value : "auto";
+}
+
+export function sanitizeGlobalSettings(settings) {
+  const source = settings && typeof settings === "object" ? settings : defaultGlobalSettings;
+
+  return {
+    showEmailLogin: source.showEmailLogin === false ? false : defaultGlobalSettings.showEmailLogin,
+  };
 }
 
 function isNumericAnswer(value) {
@@ -264,8 +277,9 @@ export function sanitizeGameConfig(config) {
   };
 }
 
-export function toPublicConfig(config) {
+export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
   const safeConfig = sanitizeGameConfig(config);
+  const safeGlobalSettings = sanitizeGlobalSettings(globalSettings);
 
   return {
     roomConfig: {
@@ -283,7 +297,7 @@ export function toPublicConfig(config) {
       wrongAnswerPenalty: safeConfig.roomConfig.wrongAnswerPenalty,
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
-      showEmailLogin: safeConfig.roomConfig.showEmailLogin,
+      showEmailLogin: safeGlobalSettings.showEmailLogin,
     },
     challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({
       ...challenge,
@@ -292,6 +306,19 @@ export function toPublicConfig(config) {
       choiceOptions: choiceOptions.map(({ correct: _correct, ...option }) => option),
     })),
   };
+}
+
+export async function getGlobalSettings() {
+  const store = getStore(STORE_NAME);
+  const savedSettings = await store.get(GLOBAL_SETTINGS_KEY, { type: "json" });
+  return sanitizeGlobalSettings(savedSettings);
+}
+
+export async function saveGlobalSettings(settings) {
+  const cleanSettings = sanitizeGlobalSettings(settings);
+  const store = getStore(STORE_NAME);
+  await store.setJSON(GLOBAL_SETTINGS_KEY, cleanSettings);
+  return cleanSettings;
 }
 
 async function publicGame(game) {

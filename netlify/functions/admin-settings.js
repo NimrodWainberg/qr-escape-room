@@ -1,13 +1,10 @@
 import {
-  getGameConfig,
-  getGameIdFromEvent,
   getGlobalSettings,
   initBlobContext,
   jsonResponse,
   methodNotAllowed,
   readJsonBody,
-  saveGameConfig,
-  toPublicConfig,
+  saveGlobalSettings,
   verifyAdminToken,
 } from "./game-store.js";
 
@@ -21,11 +18,9 @@ export const handler = async (event) => {
   }
 
   initBlobContext(event);
-  const gameId = getGameIdFromEvent(event);
 
   if (event.httpMethod === "GET") {
-    const config = await getGameConfig(gameId);
-    return jsonResponse(200, config);
+    return jsonResponse(200, await getGlobalSettings());
   }
 
   const body = readJsonBody(event);
@@ -34,10 +29,5 @@ export const handler = async (event) => {
     return jsonResponse(400, { error: "invalid_json" });
   }
 
-  const [savedConfig, globalSettings] = await Promise.all([saveGameConfig(body, gameId), getGlobalSettings()]);
-
-  return jsonResponse(200, {
-    config: savedConfig,
-    publicConfig: toPublicConfig(savedConfig, globalSettings),
-  });
+  return jsonResponse(200, await saveGlobalSettings(body));
 };
