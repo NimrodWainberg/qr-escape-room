@@ -141,6 +141,32 @@ function scoreNumber(value, fallback) {
   return cleanNumber(value, fallback);
 }
 
+function cleanAnswerInputMode(value) {
+  return ["auto", "numeric", "text"].includes(value) ? value : "auto";
+}
+
+function isNumericAnswer(value) {
+  return /^\d+$/.test(normalizeCode(value));
+}
+
+function resolveNumericOnly(challenge) {
+  const mode = cleanAnswerInputMode(challenge.answerInputMode);
+
+  if (mode === "numeric") {
+    return true;
+  }
+
+  if (mode === "text" || challenge.answerType === "choice") {
+    return false;
+  }
+
+  if (challenge.answerFields.length > 0) {
+    return challenge.answerFields.every((field) => isNumericAnswer(field.answer));
+  }
+
+  return isNumericAnswer(challenge.answer);
+}
+
 function sanitizeChallenge(challenge, index) {
   const fallbackId = index + 1;
   const numericId = Number(challenge?.id);
@@ -174,6 +200,7 @@ function sanitizeChallenge(challenge, index) {
     title: cleanString(challenge?.title, `קוד ${id}`) || `קוד ${id}`,
     question: cleanString(challenge?.question),
     answerType,
+    answerInputMode: cleanAnswerInputMode(challenge?.answerInputMode),
     answer: cleanString(challenge?.answer),
     answerFields,
     choiceOptions,
@@ -257,6 +284,7 @@ export function toPublicConfig(config) {
     },
     challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({
       ...challenge,
+      numericOnly: resolveNumericOnly({ ...challenge, answer, answerFields, choiceOptions }),
       answerFields: answerFields.map(({ answer: _answer, ...field }) => field),
       choiceOptions: choiceOptions.map(({ correct: _correct, ...option }) => option),
     })),

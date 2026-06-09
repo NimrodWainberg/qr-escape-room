@@ -1187,6 +1187,7 @@ function ChallengePage({
   const [result, setResult] = useState(solved ? "success" : "idle");
   const answerFields = challenge.answerFields?.length ? challenge.answerFields.slice(0, 6) : [];
   const isChoiceQuestion = challenge.answerType === "choice";
+  const numericOnly = Boolean(challenge.numericOnly);
 
   useEffect(() => {
     setValue("");
@@ -1270,6 +1271,8 @@ function ChallengePage({
                 <input
                   className="code-input compact-code-input"
                   autoComplete="off"
+                  inputMode={numericOnly ? "numeric" : "text"}
+                  pattern={numericOnly ? "[0-9]*" : undefined}
                   value={answerValues[index] ?? ""}
                   onChange={(event) =>
                     setAnswerValues((current) => {
@@ -1289,13 +1292,13 @@ function ChallengePage({
             <input
               id={`answer-${challenge.id}`}
               className="code-input"
-              inputMode="numeric"
-              pattern="[0-9]*"
+              inputMode={numericOnly ? "numeric" : "text"}
+              pattern={numericOnly ? "[0-9]*" : undefined}
               autoComplete="off"
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              placeholder="000"
-              dir="ltr"
+              placeholder={numericOnly ? "000" : "תשובה"}
+              dir={numericOnly ? "ltr" : "auto"}
             />
           </>
         )}
@@ -1551,6 +1554,7 @@ function createBlankChallenge(challenges) {
     title: `קוד ${id}`,
     question: "",
     answerType: "open",
+    answerInputMode: "auto",
     answer: "",
     answerFields: [],
     choiceOptions: [
@@ -2438,17 +2442,32 @@ function AdminGameForm({
                   placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
                 />
               </label>
-              <label>
-                סוג תשובה
-                <select
-                  className="admin-input"
-                  value={challenge.answerType ?? "open"}
-                  onChange={(event) => onUpdateChallenge(index, "answerType", event.target.value)}
-                >
-                  <option value="open">שדות פתוחים</option>
-                  <option value="choice">שאלה אמריקאית</option>
-                </select>
-              </label>
+              <div className="admin-inline-fields">
+                <label>
+                  סוג תשובה
+                  <select
+                    className="admin-input"
+                    value={challenge.answerType ?? "open"}
+                    onChange={(event) => onUpdateChallenge(index, "answerType", event.target.value)}
+                  >
+                    <option value="open">שדות פתוחים</option>
+                    <option value="choice">שאלה אמריקאית</option>
+                  </select>
+                </label>
+                <label>
+                  סוג הקלדה
+                  <select
+                    className="admin-input"
+                    value={challenge.answerInputMode ?? "auto"}
+                    onChange={(event) => onUpdateChallenge(index, "answerInputMode", event.target.value)}
+                    disabled={(challenge.answerType ?? "open") === "choice"}
+                  >
+                    <option value="auto">אוטומטי לפי התשובה</option>
+                    <option value="numeric">מספרים בלבד</option>
+                    <option value="text">טקסט חופשי</option>
+                  </select>
+                </label>
+              </div>
               <div className="admin-inline-fields">
                 <label>
                   הודעת הצלחה לשלב
