@@ -6,6 +6,7 @@ import {
   jsonResponse,
   methodNotAllowed,
   readJsonBody,
+  resetPlayers,
   verifyAdminToken,
 } from "./game-store.js";
 
@@ -25,6 +26,10 @@ export const handler = async (event) => {
   if (event.httpMethod === "DELETE") {
     if (!body) {
       return jsonResponse(400, { error: "invalid_json" });
+    }
+
+    if (body.reset) {
+      return jsonResponse(200, await resetPlayers(gameId));
     }
 
     return jsonResponse(200, await deletePlayers(body.ids, gameId));

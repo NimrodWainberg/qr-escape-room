@@ -10,6 +10,7 @@ export const roomConfig = {
   finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
   finalSuccessButtonLabel: "חזרה לשלבים",
   passwordProtected: false,
+  showEmailLogin: true,
   questionPoints: 10,
   wrongAnswerPenalty: 1,
   finalBonusPoints: 50,

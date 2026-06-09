@@ -681,6 +681,7 @@ export default function App() {
       {showLoginModal && (
         <Modal title="כניסה למשחק" onClose={() => setShowLoginModal(false)}>
           <LoginChoices
+            showEmailLogin={roomConfig.showEmailLogin}
             onGuestLogin={loginPlayer}
             onRequestOtp={requestPlayerOtp}
             onVerifyOtp={verifyPlayerOtp}
@@ -905,8 +906,12 @@ function PlayerGate({ onLogin }) {
   );
 }
 
-function LoginChoices({ onGuestLogin, onRequestOtp, onVerifyOtp }) {
-  const [mode, setMode] = useState("email");
+function LoginChoices({ showEmailLogin = true, onGuestLogin, onRequestOtp, onVerifyOtp }) {
+  const [mode, setMode] = useState(showEmailLogin ? "email" : "guest");
+
+  useEffect(() => {
+    setMode(showEmailLogin ? "email" : "guest");
+  }, [showEmailLogin]);
 
   return (
     <div className="login-choices">
@@ -1874,6 +1879,27 @@ function AdminPage({
     }
   }
 
+  async function resetGameData(targetGameId) {
+    const cleanGameId = normalizeGameId(targetGameId);
+
+    if (!window.confirm("לאפס את כל השחקנים, הדירוג והנתונים של המשחק הזה? המשחק והשאלות יישארו.")) {
+      return;
+    }
+
+    try {
+      const nextAnalytics = await deleteJson(withGame(API.adminAnalytics, cleanGameId), { reset: true }, token);
+
+      if (cleanGameId === gameId) {
+        setAnalytics(nextAnalytics);
+        onResetProgress();
+      }
+
+      setMessage("נתוני המשחק אופסו.");
+    } catch {
+      setMessage("לא הצלחנו לאפס את נתוני המשחק.");
+    }
+  }
+
   async function openGameEditor(game) {
     setMessage("");
     setEditingGame(game);
@@ -2076,6 +2102,7 @@ function AdminPage({
           onGameChange={onGameChange}
           onNewGameIdChange={setNewGameId}
           onNewGameTitleChange={setNewGameTitle}
+          onResetGameData={resetGameData}
         />
       )}
 
@@ -2165,6 +2192,7 @@ function AdminGamesPanel({
   onGameChange,
   onNewGameIdChange,
   onNewGameTitleChange,
+  onResetGameData,
 }) {
   return (
     <section className="admin-section">
@@ -2188,6 +2216,15 @@ function AdminGamesPanel({
               title={`עריכת ${game.title}`}
             >
               <Pencil aria-hidden="true" />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => onResetGameData(game.id)}
+              aria-label={`איפוס נתונים של ${game.title}`}
+              title={`איפוס נתונים של ${game.title}`}
+            >
+              <RefreshCcw aria-hidden="true" />
             </button>
             <button
               className="icon-button danger-button"
@@ -2256,8 +2293,21 @@ function AdminGameForm({
   onUpdateChoiceOption,
   onUpdateRoomConfig,
 }) {
+  const [section, setSection] = useState("main");
+
   return (
     <form className="admin-form" onSubmit={onSaveConfig}>
+      <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
+        <button className={section === "main" ? "is-active" : ""} type="button" onClick={() => setSection("main")}>
+          הגדרות
+        </button>
+        <button className={section === "levels" ? "is-active" : ""} type="button" onClick={() => setSection("levels")}>
+          שלבים
+        </button>
+      </div>
+
+      {section === "main" && (
+      <>
       <fieldset className="admin-section">
         <legend>הגדרות כלליות</legend>
         <label>
@@ -2342,6 +2392,14 @@ function AdminGameForm({
             />
           </label>
         </div>
+        <label className="inline-check setting-check">
+          <input
+            type="checkbox"
+            checked={config.roomConfig.showEmailLogin !== false}
+            onChange={(event) => onUpdateRoomConfig("showEmailLogin", event.target.checked)}
+          />
+          הצגת כניסה עם אימייל וקוד חד-פעמי
+        </label>
         <label>
           פתרון סופי
           <input
@@ -2396,7 +2454,10 @@ function AdminGameForm({
           />
         </label>
       </fieldset>
+      </>
+      )}
 
+      {section === "levels" && (
       <fieldset className="admin-section">
         <legend>שלבים</legend>
         <div className="admin-section-heading">
@@ -2622,6 +2683,7 @@ function AdminGameForm({
           ))}
         </div>
       </fieldset>
+      )}
 
       <div className="admin-actions">
         <button className="primary-button" type="submit" disabled={status === "saving"}>

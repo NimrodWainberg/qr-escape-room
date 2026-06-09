@@ -31,6 +31,7 @@ const defaultGameConfig = {
     finalSuccessButtonLabel: "חזרה לשלבים",
     finalCode: "חופשה נעימה",
     gamePassword: "",
+    showEmailLogin: true,
     questionPoints: 10,
     wrongAnswerPenalty: 1,
     finalBonusPoints: 50,
@@ -251,6 +252,7 @@ export function sanitizeGameConfig(config) {
       ),
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
       gamePassword: cleanString(sourceRoomConfig.gamePassword, defaultGameConfig.roomConfig.gamePassword),
+      showEmailLogin: sourceRoomConfig.showEmailLogin === false ? false : defaultGameConfig.roomConfig.showEmailLogin,
       questionPoints: cleanNumber(sourceRoomConfig.questionPoints, defaultGameConfig.roomConfig.questionPoints),
       wrongAnswerPenalty: cleanNumber(
         sourceRoomConfig.wrongAnswerPenalty,
@@ -281,6 +283,7 @@ export function toPublicConfig(config) {
       wrongAnswerPenalty: safeConfig.roomConfig.wrongAnswerPenalty,
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
+      showEmailLogin: safeConfig.roomConfig.showEmailLogin,
     },
     challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({
       ...challenge,
@@ -1140,6 +1143,21 @@ export async function deletePlayers(ids, gameId = DEFAULT_GAME_ID) {
   });
   const prefix = getPlayerPrefix(gameId);
   await Promise.all([...playerIds].map((id) => store.delete(`${prefix}${id}`)));
+
+  return getAnalytics(gameId);
+}
+
+export async function resetPlayers(gameId = DEFAULT_GAME_ID) {
+  const store = getStore(STORE_NAME);
+  const legacyData = sanitizePlayersData(await store.get(getLegacyPlayersKey(gameId), { type: "json" }));
+  const prefix = getPlayerPrefix(gameId);
+  const { blobs } = await store.list({ prefix });
+
+  await Promise.all([
+    store.setJSON(getLegacyPlayersKey(gameId), { players: [] }),
+    ...legacyData.players.map((player) => store.delete(`${prefix}${player.id}`)),
+    ...blobs.map((blob) => store.delete(blob.key)),
+  ]);
 
   return getAnalytics(gameId);
 }
