@@ -435,7 +435,7 @@ export async function saveGameConfig(config, gameId = DEFAULT_GAME_ID) {
 }
 
 function getTokenSecret() {
-  return process.env.ADMIN_TOKEN_SECRET || "";
+  return process.env.OTP_TOKEN_SECRET || process.env.ADMIN_TOKEN_SECRET || "";
 }
 
 function sign(value) {
