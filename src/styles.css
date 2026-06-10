@@ -650,6 +650,334 @@ h1 {
   background: color-mix(in srgb, var(--surface-strong) 82%, var(--green) 18%);
 }
 
+.puzzle-progress {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(18rem, 1.15fr);
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2rem);
+  padding: clamp(1rem, 3vw, 1.5rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--teal) 40%, var(--line));
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-strong) 90%, transparent), color-mix(in srgb, var(--teal) 10%, var(--surface))),
+    var(--surface-strong);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--teal) 14%, transparent);
+}
+
+.puzzle-progress::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -35%;
+  inset-inline-end: -10%;
+  width: 18rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--amber) 34%, transparent), transparent 68%);
+  animation: puzzleGlow 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.puzzle-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.puzzle-copy h2 {
+  margin: 0;
+  font-size: clamp(1.75rem, 5vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.puzzle-copy p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.puzzle-stage {
+  position: relative;
+  z-index: 1;
+  min-height: clamp(18rem, 38vw, 28rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, var(--teal));
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #b9ecff 0%, #f7e6aa 58%, #41b9b0 100%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 30%);
+}
+
+.puzzle-treasure .puzzle-stage {
+  background: linear-gradient(180deg, #f6d78c 0%, #b9874c 52%, #326b64 100%);
+}
+
+.puzzle-space .puzzle-stage {
+  background: linear-gradient(180deg, #18213f 0%, #47357b 48%, #1e8f9a 100%);
+}
+
+.puzzle-scene,
+.puzzle-pieces {
+  position: absolute;
+  inset: 0;
+}
+
+.puzzle-sun,
+.puzzle-cloud,
+.puzzle-wave,
+.puzzle-landmark {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.puzzle-sun {
+  inset-block-start: 10%;
+  inset-inline-end: 11%;
+  width: 5.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff8c8, var(--amber) 58%, #ff8b4f);
+  box-shadow: 0 0 42px rgb(255 200 87 / 58%);
+  animation: puzzleFloat 6s ease-in-out infinite;
+}
+
+.puzzle-space .puzzle-sun {
+  width: 4.3rem;
+  background: radial-gradient(circle at 35% 35%, #fff, #b79bff 58%, #5e4aca);
+  box-shadow: 0 0 46px rgb(170 145 255 / 62%);
+}
+
+.puzzle-cloud {
+  width: 7rem;
+  height: 2.3rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+  filter: blur(0.2px);
+}
+
+.puzzle-cloud::before,
+.puzzle-cloud::after {
+  content: "";
+  position: absolute;
+  inset-block-end: 0.45rem;
+  width: 2.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.puzzle-cloud::before {
+  inset-inline-start: 1rem;
+}
+
+.puzzle-cloud::after {
+  inset-inline-start: 3rem;
+}
+
+.puzzle-cloud-a {
+  inset-block-start: 18%;
+  inset-inline-start: 10%;
+  animation: cloudDrift 9s ease-in-out infinite;
+}
+
+.puzzle-cloud-b {
+  inset-block-start: 32%;
+  inset-inline-end: 27%;
+  transform: scale(0.72);
+  opacity: 0.72;
+  animation: cloudDrift 11s ease-in-out infinite reverse;
+}
+
+.puzzle-wave {
+  inset-inline: -8%;
+  height: 22%;
+  border-radius: 50% 50% 0 0;
+  background: color-mix(in srgb, var(--teal) 58%, white);
+}
+
+.puzzle-wave-a {
+  inset-block-end: 3%;
+  opacity: 0.9;
+  animation: waveShift 5s ease-in-out infinite;
+}
+
+.puzzle-wave-b {
+  inset-block-end: -5%;
+  background: color-mix(in srgb, var(--teal-dark) 74%, white);
+  opacity: 0.72;
+  animation: waveShift 6s ease-in-out infinite reverse;
+}
+
+.puzzle-landmark {
+  inset-block-end: 15%;
+  inset-inline-start: 11%;
+  width: 6rem;
+  height: 6rem;
+  border-radius: 0.45rem 0.45rem 0 0;
+  background:
+    linear-gradient(90deg, transparent 42%, #7a5537 42% 58%, transparent 58%),
+    linear-gradient(135deg, #ff8b4f, #ffd166);
+  clip-path: polygon(50% 0, 66% 34%, 100% 34%, 72% 55%, 84% 100%, 50% 72%, 16% 100%, 28% 55%, 0 34%, 34% 34%);
+  opacity: 0.92;
+  animation: puzzleFloat 7s ease-in-out infinite reverse;
+}
+
+.puzzle-pieces {
+  display: grid;
+  grid-template-columns: repeat(var(--piece-count), minmax(0, 1fr));
+}
+
+.puzzle-piece {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 100%;
+  padding: 0.65rem;
+  border: 0;
+  border-inline-start: 1px solid rgb(255 255 255 / 42%);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 54%), rgb(255 255 255 / 12%)),
+    color-mix(in srgb, var(--surface-strong) 20%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    opacity 220ms ease,
+    background 220ms ease,
+    transform 220ms ease,
+    filter 220ms ease;
+}
+
+.puzzle-piece:first-child {
+  border-inline-start: 0;
+}
+
+.puzzle-piece::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 0, transparent 0 1.15rem, rgb(255 255 255 / 24%) 1.2rem 1.55rem, transparent 1.6rem),
+    radial-gradient(circle at 50% 100%, transparent 0 1.15rem, rgb(255 255 255 / 24%) 1.2rem 1.55rem, transparent 1.6rem);
+  opacity: 0.5;
+}
+
+.puzzle-piece.is-hidden {
+  opacity: 0.48;
+  filter: grayscale(0.45);
+  cursor: not-allowed;
+}
+
+.puzzle-piece:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+
+.puzzle-piece.is-available {
+  opacity: 0.76;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 60%), rgb(255 255 255 / 18%)),
+    color-mix(in srgb, var(--amber) 20%, transparent);
+  animation: availablePulse 2.6s ease-in-out infinite;
+}
+
+.puzzle-piece.is-revealed {
+  opacity: 1;
+  background: transparent;
+  animation: revealPiece 520ms cubic-bezier(0.2, 0.85, 0.25, 1.2) both;
+}
+
+.puzzle-piece:hover:not(:disabled) {
+  transform: scale(1.018);
+}
+
+.puzzle-piece-number,
+.puzzle-piece-lock,
+.puzzle-piece-reward {
+  position: relative;
+  z-index: 1;
+}
+
+.puzzle-piece-number {
+  position: absolute;
+  inset-block-start: 0.65rem;
+  inset-inline-start: 0.65rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 72%);
+  color: #20140b;
+  font-weight: 900;
+}
+
+.puzzle-piece-lock svg {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+
+.puzzle-piece-reward {
+  min-height: 3.2rem;
+  display: grid;
+  place-items: center;
+  font-size: clamp(1.7rem, 5vw, 3.8rem);
+  font-weight: 900;
+  color: #20140b;
+  text-shadow: 0 2px 18px rgb(255 255 255 / 70%);
+}
+
+.puzzle-meter {
+  position: absolute;
+  inset-inline: 1rem;
+  inset-block-end: 1rem;
+  height: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 45%);
+}
+
+.puzzle-meter span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--amber), var(--coral));
+  transition: inline-size 450ms ease;
+}
+
+.puzzle-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  grid-column: 1 / -1;
+  padding-block-start: 0.25rem;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.puzzle-footer strong {
+  color: var(--text);
+  font-size: 1.35rem;
+  unicode-bidi: isolate;
+}
+
+.puzzle-progress.is-complete {
+  border-color: color-mix(in srgb, var(--green) 70%, var(--line));
+}
+
+.puzzle-progress.is-complete .puzzle-stage {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 38%),
+    0 0 0 6px color-mix(in srgb, var(--green) 12%, transparent);
+}
+
 .challenge-card strong,
 .challenge-card small {
   display: block;
@@ -1940,6 +2268,75 @@ h1 {
   }
 }
 
+@keyframes puzzleGlow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.86;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes puzzleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes cloudDrift {
+  0%,
+  100% {
+    translate: -0.9rem 0;
+  }
+
+  50% {
+    translate: 1rem 0;
+  }
+}
+
+@keyframes waveShift {
+  0%,
+  100% {
+    translate: -0.8rem 0;
+  }
+
+  50% {
+    translate: 0.8rem 0;
+  }
+}
+
+@keyframes availablePulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgb(255 255 255 / 0%);
+  }
+
+  50% {
+    box-shadow: inset 0 0 0 999px rgb(255 255 255 / 12%);
+  }
+}
+
+@keyframes revealPiece {
+  0% {
+    filter: blur(5px) saturate(0.65);
+    transform: scale(0.96);
+  }
+
+  100% {
+    filter: blur(0) saturate(1);
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 820px) {
   .challenge-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1947,6 +2344,33 @@ h1 {
 
   .challenge-card {
     min-height: 5.6rem;
+  }
+
+  .puzzle-progress {
+    grid-template-columns: 1fr;
+  }
+
+  .puzzle-stage {
+    min-height: 23rem;
+  }
+
+  .puzzle-pieces {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(7rem, 1fr);
+  }
+
+  .puzzle-piece {
+    min-height: 7rem;
+    border-block-start: 1px solid rgb(255 255 255 / 42%);
+  }
+
+  .puzzle-piece:nth-child(1),
+  .puzzle-piece:nth-child(2) {
+    border-block-start: 0;
+  }
+
+  .puzzle-piece:nth-child(odd) {
+    border-inline-start: 0;
   }
 }
 
@@ -2011,6 +2435,35 @@ h1 {
   .page-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .puzzle-stage {
+    min-height: 26rem;
+  }
+
+  .puzzle-pieces {
+    grid-template-columns: 1fr;
+    grid-auto-rows: minmax(5rem, 1fr);
+  }
+
+  .puzzle-piece {
+    min-height: 5rem;
+    border-inline-start: 0;
+    border-block-start: 1px solid rgb(255 255 255 / 42%);
+  }
+
+  .puzzle-piece:first-child {
+    border-block-start: 0;
+  }
+
+  .puzzle-piece:nth-child(2) {
+    border-block-start: 1px solid rgb(255 255 255 / 42%);
+  }
+
+  .puzzle-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.1rem;
   }
 
   .challenge-grid,

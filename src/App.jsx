@@ -850,6 +850,16 @@ function HomePage({
         </button>
       </div>
 
+      {roomConfig.puzzleMode === "reveal" && (
+        <PuzzleProgress
+          challenges={challenges}
+          roomConfig={roomConfig}
+          solved={solved}
+          finalUnlocked={finalUnlocked}
+          onNavigate={onNavigate}
+        />
+      )}
+
       <div className="challenge-grid">
         {challenges.map((challenge) => {
           const solvedChallenge = isChallengeSolved(challenge, solved);
@@ -893,6 +903,73 @@ function HomePage({
         {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
         {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
       </button>
+    </section>
+  );
+}
+
+function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavigate }) {
+  const solvedCount = challenges.filter((challenge) => isChallengeSolved(challenge, solved)).length;
+  const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
+    ? roomConfig.puzzleTheme
+    : "vacation";
+
+  return (
+    <section className={`puzzle-progress puzzle-${theme} ${finalUnlocked ? "is-complete" : ""}`} aria-label="פאזל התקדמות">
+      <div className="puzzle-copy">
+        <p className="eyebrow">פאזל התקדמות</p>
+        <h2>{getEditableText(roomConfig.puzzleTitle, "מפת הבריחה")}</h2>
+        <p>{getEditableText(roomConfig.puzzleSubtitle, "כל קוד נכון חושף חלק נוסף בתמונה.")}</p>
+      </div>
+
+      <div className="puzzle-stage" style={{ "--piece-count": challenges.length }}>
+        <div className="puzzle-scene" aria-hidden="true">
+          <span className="puzzle-sun" />
+          <span className="puzzle-cloud puzzle-cloud-a" />
+          <span className="puzzle-cloud puzzle-cloud-b" />
+          <span className="puzzle-wave puzzle-wave-a" />
+          <span className="puzzle-wave puzzle-wave-b" />
+          <span className="puzzle-landmark" />
+        </div>
+
+        <div className="puzzle-pieces">
+          {challenges.map((challenge, index) => {
+            const solvedChallenge = isChallengeSolved(challenge, solved);
+            const unlockedChallenge = isChallengeUnlocked(challenges, challenge, solved);
+            const state = solvedChallenge ? "is-revealed" : unlockedChallenge ? "is-available" : "is-hidden";
+
+            return (
+              <button
+                className={`puzzle-piece ${state}`}
+                key={challenge.id}
+                type="button"
+                style={{ "--piece-index": index }}
+                disabled={!unlockedChallenge}
+                onClick={() => onNavigate(challenge.path)}
+                aria-label={`${challenge.title}: ${
+                  solvedChallenge ? "נפתר" : unlockedChallenge ? "פתוח" : "נעול"
+                }`}
+              >
+                <span className="puzzle-piece-number">{challenge.id}</span>
+                <span className="puzzle-piece-lock">
+                  {solvedChallenge ? <Check aria-hidden="true" /> : <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />}
+                </span>
+                <span className="puzzle-piece-reward">{solvedChallenge ? challenge.reward : ""}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="puzzle-meter" aria-hidden="true">
+          <span style={{ inlineSize: `${challenges.length ? (solvedCount / challenges.length) * 100 : 0}%` }} />
+        </div>
+      </div>
+
+      <div className="puzzle-footer">
+        <strong>
+          {solvedCount}/{challenges.length}
+        </strong>
+        <span>{finalUnlocked ? "התמונה נפתחה במלואה" : "חלקים נחשפו"}</span>
+      </div>
     </section>
   );
 }
@@ -2526,6 +2603,56 @@ function AdminGameForm({
             className="admin-textarea compact-textarea"
             value={config.roomConfig.finalErrorMessage}
             onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)}
+          />
+        </label>
+      </fieldset>
+
+      <fieldset className="admin-section">
+        <legend>פאזל התקדמות</legend>
+        <label className="switch-setting">
+          <span>
+            <strong>הצגת פאזל במשחק</strong>
+            <small>כל שלב שנפתר חושף חלק נוסף בפאזל במסך הבית.</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={config.roomConfig.puzzleMode === "reveal"}
+            onChange={(event) => onUpdateRoomConfig("puzzleMode", event.target.checked ? "reveal" : "off")}
+          />
+          <span className="switch-track" aria-hidden="true">
+            <span className="switch-thumb" />
+          </span>
+        </label>
+        <div className="admin-inline-fields">
+          <label>
+            כותרת הפאזל
+            <input
+              className="admin-input"
+              value={config.roomConfig.puzzleTitle ?? ""}
+              onChange={(event) => onUpdateRoomConfig("puzzleTitle", event.target.value)}
+              placeholder="מפת הבריחה"
+            />
+          </label>
+          <label>
+            סגנון
+            <select
+              className="admin-input"
+              value={config.roomConfig.puzzleTheme ?? "vacation"}
+              onChange={(event) => onUpdateRoomConfig("puzzleTheme", event.target.value)}
+            >
+              <option value="vacation">חופשה</option>
+              <option value="treasure">אוצר</option>
+              <option value="space">חלל</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          טקסט קצר מתחת לכותרת
+          <textarea
+            className="admin-textarea compact-textarea"
+            value={config.roomConfig.puzzleSubtitle ?? ""}
+            onChange={(event) => onUpdateRoomConfig("puzzleSubtitle", event.target.value)}
+            placeholder="כל קוד נכון חושף חלק נוסף בתמונה."
           />
         </label>
       </fieldset>

@@ -15,6 +15,10 @@ export const roomConfig = {
   questionPoints: 10,
   wrongAnswerPenalty: 1,
   finalBonusPoints: 50,
+  puzzleMode: "off",
+  puzzleTitle: "מפת הבריחה",
+  puzzleSubtitle: "כל קוד נכון חושף חלק נוסף בתמונה.",
+  puzzleTheme: "vacation",
 };
 
 export const challenges = [

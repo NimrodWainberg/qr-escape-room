@@ -36,6 +36,10 @@ const defaultGameConfig = {
     questionPoints: 10,
     wrongAnswerPenalty: 1,
     finalBonusPoints: 50,
+    puzzleMode: "off",
+    puzzleTitle: "מפת הבריחה",
+    puzzleSubtitle: "כל קוד נכון חושף חלק נוסף בתמונה.",
+    puzzleTheme: "vacation",
   },
   challenges: [
     { id: 1, path: "/q/1", title: "קוד 1", question: "", answer: "1", reward: "חו" },
@@ -279,6 +283,14 @@ export function sanitizeGameConfig(config) {
         defaultGameConfig.roomConfig.wrongAnswerPenalty,
       ),
       finalBonusPoints: cleanNumber(sourceRoomConfig.finalBonusPoints, defaultGameConfig.roomConfig.finalBonusPoints),
+      puzzleMode: ["off", "reveal"].includes(sourceRoomConfig.puzzleMode)
+        ? sourceRoomConfig.puzzleMode
+        : defaultGameConfig.roomConfig.puzzleMode,
+      puzzleTitle: cleanString(sourceRoomConfig.puzzleTitle, defaultGameConfig.roomConfig.puzzleTitle),
+      puzzleSubtitle: cleanString(sourceRoomConfig.puzzleSubtitle, defaultGameConfig.roomConfig.puzzleSubtitle),
+      puzzleTheme: ["vacation", "treasure", "space"].includes(sourceRoomConfig.puzzleTheme)
+        ? sourceRoomConfig.puzzleTheme
+        : defaultGameConfig.roomConfig.puzzleTheme,
     },
     challenges: sourceChallenges.map(sanitizeChallenge),
   };
@@ -303,6 +315,10 @@ export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
       questionPoints: safeConfig.roomConfig.questionPoints,
       wrongAnswerPenalty: safeConfig.roomConfig.wrongAnswerPenalty,
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
+      puzzleMode: safeConfig.roomConfig.puzzleMode,
+      puzzleTitle: safeConfig.roomConfig.puzzleTitle,
+      puzzleSubtitle: safeConfig.roomConfig.puzzleSubtitle,
+      puzzleTheme: safeConfig.roomConfig.puzzleTheme,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
       showEmailLogin: safeGlobalSettings.showEmailLogin,
       defaultAnswerLabel: safeGlobalSettings.defaultAnswerLabel,
