@@ -33,6 +33,7 @@ const defaultGameConfig = {
     finalCode: "חופשה נעימה",
     gamePassword: "",
     showEmailLogin: true,
+    defaultAnswerLabel: "הכניסו את הקוד",
     questionPoints: 10,
     wrongAnswerPenalty: 1,
     finalBonusPoints: 50,
@@ -52,7 +53,6 @@ const defaultGameConfig = {
 
 const defaultGlobalSettings = {
   showEmailLogin: true,
-  defaultAnswerLabel: "הכניסו את הקוד",
 };
 
 export function initBlobContext(event) {
@@ -158,14 +158,9 @@ function cleanAnswerInputMode(value) {
 
 export function sanitizeGlobalSettings(settings) {
   const source = settings && typeof settings === "object" ? settings : defaultGlobalSettings;
-  const defaultAnswerLabel = cleanString(source.defaultAnswerLabel, defaultGlobalSettings.defaultAnswerLabel);
 
   return {
     showEmailLogin: source.showEmailLogin === false ? false : defaultGlobalSettings.showEmailLogin,
-    defaultAnswerLabel:
-      !defaultAnswerLabel || defaultAnswerLabel === "הכניסו מספר"
-        ? defaultGlobalSettings.defaultAnswerLabel
-        : defaultAnswerLabel,
   };
 }
 
@@ -243,6 +238,10 @@ export function sanitizeGameConfig(config) {
     source.roomConfig && typeof source.roomConfig === "object" ? source.roomConfig : defaultGameConfig.roomConfig;
   const sourceChallenges =
     Array.isArray(source.challenges) && source.challenges.length > 0 ? source.challenges : defaultGameConfig.challenges;
+  const defaultAnswerLabel = cleanString(
+    sourceRoomConfig.defaultAnswerLabel,
+    defaultGameConfig.roomConfig.defaultAnswerLabel,
+  ).trim();
 
   return {
     roomConfig: {
@@ -277,6 +276,10 @@ export function sanitizeGameConfig(config) {
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
       gamePassword: cleanString(sourceRoomConfig.gamePassword, defaultGameConfig.roomConfig.gamePassword),
       showEmailLogin: sourceRoomConfig.showEmailLogin === false ? false : defaultGameConfig.roomConfig.showEmailLogin,
+      defaultAnswerLabel:
+        !defaultAnswerLabel || defaultAnswerLabel === "הכניסו מספר"
+          ? defaultGameConfig.roomConfig.defaultAnswerLabel
+          : defaultAnswerLabel,
       questionPoints: cleanNumber(sourceRoomConfig.questionPoints, defaultGameConfig.roomConfig.questionPoints),
       wrongAnswerPenalty: cleanNumber(
         sourceRoomConfig.wrongAnswerPenalty,
@@ -321,7 +324,7 @@ export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
       puzzleTheme: safeConfig.roomConfig.puzzleTheme,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
       showEmailLogin: safeGlobalSettings.showEmailLogin,
-      defaultAnswerLabel: safeGlobalSettings.defaultAnswerLabel,
+      defaultAnswerLabel: safeConfig.roomConfig.defaultAnswerLabel,
     },
     challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({
       ...challenge,

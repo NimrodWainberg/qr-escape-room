@@ -1690,7 +1690,7 @@ function AdminPage({
   const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
-  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true, defaultAnswerLabel: "הכניסו את הקוד" });
+  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true });
   const [analytics, setAnalytics] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState("games");
   const [games, setGames] = useState([]);
@@ -2089,7 +2089,7 @@ function AdminPage({
     setToken("");
     setConfig(null);
     setAnalytics(null);
-    setGlobalSettings({ showEmailLogin: true, defaultAnswerLabel: "הכניסו את הקוד" });
+    setGlobalSettings({ showEmailLogin: true });
     setAdminUsers([]);
     setGames([]);
     setStatus("idle");
@@ -2448,17 +2448,8 @@ function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate 
             <span className="switch-thumb" />
           </span>
         </label>
-        <label>
-          טקסט ברירת מחדל לפני שדה תשובה
-          <input
-            className="admin-input"
-            value={settings.defaultAnswerLabel ?? "הכניסו את הקוד"}
-            onChange={(event) => onUpdate("defaultAnswerLabel", event.target.value)}
-            placeholder="הכניסו את הקוד"
-          />
-        </label>
         <p className="admin-help-text">
-          ההגדרות כאן חלות על כל המשחקים. כל שלב יכול לעקוף את טקסט שדה התשובה מתוך מסך השלבים.
+          ההגדרות כאן חלות על כל המשחקים. הגדרות טקסטים, ניקוד ופאזל נשמרות בנפרד לכל משחק.
         </p>
       </fieldset>
 
@@ -2528,6 +2519,15 @@ function AdminGameForm({
             className="admin-textarea"
             value={config.roomConfig.finalPrompt}
             onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)}
+          />
+        </label>
+        <label>
+          טקסט ברירת מחדל לפני שדה תשובה
+          <input
+            className="admin-input"
+            value={config.roomConfig.defaultAnswerLabel ?? "הכניסו את הקוד"}
+            onChange={(event) => onUpdateRoomConfig("defaultAnswerLabel", event.target.value)}
+            placeholder="הכניסו את הקוד"
           />
         </label>
         <div className="admin-inline-fields">
