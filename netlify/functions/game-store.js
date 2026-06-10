@@ -48,6 +48,7 @@ const defaultGameConfig = {
 
 const defaultGlobalSettings = {
   showEmailLogin: true,
+  defaultAnswerLabel: "הכניסו מספר",
 };
 
 export function initBlobContext(event) {
@@ -156,6 +157,9 @@ export function sanitizeGlobalSettings(settings) {
 
   return {
     showEmailLogin: source.showEmailLogin === false ? false : defaultGlobalSettings.showEmailLogin,
+    defaultAnswerLabel:
+      cleanString(source.defaultAnswerLabel, defaultGlobalSettings.defaultAnswerLabel) ||
+      defaultGlobalSettings.defaultAnswerLabel,
   };
 }
 
@@ -215,6 +219,7 @@ function sanitizeChallenge(challenge, index) {
     question: cleanString(challenge?.question),
     answerType,
     answerInputMode: cleanAnswerInputMode(challenge?.answerInputMode),
+    answerLabel: cleanString(challenge?.answerLabel),
     answer: cleanString(challenge?.answer),
     answerFields,
     choiceOptions,
@@ -298,6 +303,7 @@ export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
       showEmailLogin: safeGlobalSettings.showEmailLogin,
+      defaultAnswerLabel: safeGlobalSettings.defaultAnswerLabel,
     },
     challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({
       ...challenge,

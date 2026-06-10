@@ -144,6 +144,10 @@ function getEditableText(value, fallback) {
   return text || fallback;
 }
 
+function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו מספר") {
+  return getEditableText(challenge.answerLabel, getEditableText(roomConfig.defaultAnswerLabel, fallback));
+}
+
 async function postJson(url, body, token) {
   const response = await fetch(url, {
     method: "POST",
@@ -1194,6 +1198,7 @@ function ChallengePage({
   const answerFields = challenge.answerFields?.length ? challenge.answerFields.slice(0, 6) : [];
   const isChoiceQuestion = challenge.answerType === "choice";
   const numericOnly = Boolean(challenge.numericOnly);
+  const answerLabel = getAnswerLabel(challenge, roomConfig);
 
   useEffect(() => {
     setValue("");
@@ -1273,7 +1278,7 @@ function ChallengePage({
           <div className="multi-answer-row">
             {answerFields.map((field, index) => (
               <label key={field.id}>
-                {field.label || `תשובה ${index + 1}`}
+                {field.label || answerLabel}
                 <input
                   className="code-input compact-code-input"
                   autoComplete="off"
@@ -1294,7 +1299,7 @@ function ChallengePage({
           </div>
         ) : (
           <>
-            <label htmlFor={`answer-${challenge.id}`}>הכניסו מספר</label>
+            <label htmlFor={`answer-${challenge.id}`}>{answerLabel}</label>
             <input
               id={`answer-${challenge.id}`}
               className="code-input"
@@ -1567,6 +1572,7 @@ function createBlankChallenge(challenges) {
       { id: "option-1", text: "", correct: true },
       { id: "option-2", text: "", correct: false },
     ],
+    answerLabel: "",
     reward: "",
     points: "",
     wrongAnswerPenalty: "",
@@ -2339,8 +2345,17 @@ function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate 
           />
           הצגת כניסה עם אימייל וקוד חד-פעמי
         </label>
+        <label>
+          טקסט ברירת מחדל לפני שדה תשובה
+          <input
+            className="admin-input"
+            value={settings.defaultAnswerLabel ?? "הכניסו מספר"}
+            onChange={(event) => onUpdate("defaultAnswerLabel", event.target.value)}
+            placeholder="הכניסו מספר"
+          />
+        </label>
         <p className="admin-help-text">
-          כשהאפשרות כבויה, כל המשחקים יציגו רק כניסה עם שם. כשהיא פעילה, השחקן יוכל לבחור גם כניסה באימייל.
+          ההגדרות כאן חלות על כל המשחקים. כל שלב יכול לעקוף את טקסט שדה התשובה מתוך מסך השלבים.
         </p>
       </fieldset>
 
@@ -2599,6 +2614,15 @@ function AdminGameForm({
                   </select>
                 </label>
               </div>
+              <label>
+                טקסט לפני שדה התשובה
+                <input
+                  className="admin-input"
+                  value={challenge.answerLabel ?? ""}
+                  onChange={(event) => onUpdateChallenge(index, "answerLabel", event.target.value)}
+                  placeholder="ריק = ברירת מחדל כללית"
+                />
+              </label>
               <div className="admin-inline-fields">
                 <label>
                   הודעת הצלחה לשלב
