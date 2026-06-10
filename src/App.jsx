@@ -144,7 +144,7 @@ function getEditableText(value, fallback) {
   return text || fallback;
 }
 
-function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו מספר") {
+function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו את הקוד") {
   return getEditableText(challenge.answerLabel, getEditableText(roomConfig.defaultAnswerLabel, fallback));
 }
 
@@ -307,6 +307,8 @@ export default function App() {
     let cancelled = false;
 
     async function loadPublicConfig() {
+      setConfigStatus("loading");
+
       try {
         const nextConfig = await getJson(withGame(API.publicConfig, gameId));
 
@@ -594,6 +596,8 @@ export default function App() {
             onResetProgress={resetProgress}
             onPublicGamesRefresh={loadPublicGames}
           />
+        ) : configStatus === "loading" ? (
+          <LoadingPage title="טוען משחק" />
         ) : isLobby ? (
           <GamesDirectoryPage
             games={publicGames}
@@ -931,13 +935,24 @@ function LoginChoices({ showEmailLogin = true, onGuestLogin, onRequestOtp, onVer
       ) : (
         <>
           <PlayerLoginPanel onLogin={onGuestLogin} />
-          <button className="ghost-button guest-switch-button" type="button" onClick={() => setMode("email")}>
-            <Sparkles aria-hidden="true" />
-            חזרה לכניסה באימייל
-          </button>
+          {showEmailLogin && (
+            <button className="ghost-button guest-switch-button" type="button" onClick={() => setMode("email")}>
+              <Sparkles aria-hidden="true" />
+              חזרה לכניסה באימייל
+            </button>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+function LoadingPage({ title = "טוען" }) {
+  return (
+    <section className="hero-section loading-section" aria-live="polite">
+      <LoaderCircle aria-hidden="true" className="spin-icon" />
+      <h1>{title}</h1>
+    </section>
   );
 }
 
@@ -1014,6 +1029,11 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
 
       if (error.message === "invalid_email") {
         setMessage("האימייל לא נראה תקין.");
+        return;
+      }
+
+      if (error.status === 502 || error.message === "email_failed") {
+        setMessage("ספק האימייל דחה את השליחה. בדקו שהשולח מאומת ב-Resend או כבו כניסה באימייל בהגדרות.");
         return;
       }
 
@@ -1593,7 +1613,7 @@ function AdminPage({
   const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
-  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true });
+  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true, defaultAnswerLabel: "הכניסו את הקוד" });
   const [analytics, setAnalytics] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState("games");
   const [games, setGames] = useState([]);
@@ -1992,7 +2012,7 @@ function AdminPage({
     setToken("");
     setConfig(null);
     setAnalytics(null);
-    setGlobalSettings({ showEmailLogin: true });
+    setGlobalSettings({ showEmailLogin: true, defaultAnswerLabel: "הכניסו את הקוד" });
     setAdminUsers([]);
     setGames([]);
     setStatus("idle");
@@ -2337,21 +2357,27 @@ function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate 
     <form className="admin-form" onSubmit={onSave}>
       <fieldset className="admin-section">
         <legend>הגדרות כלליות לכל המשחקים</legend>
-        <label className="inline-check setting-check">
+        <label className="switch-setting">
+          <span>
+            <strong>כניסה באימייל וקוד חד-פעמי</strong>
+            <small>כשהאפשרות כבויה, השחקן יראה רק כניסה עם שם.</small>
+          </span>
           <input
             type="checkbox"
             checked={settings.showEmailLogin !== false}
             onChange={(event) => onUpdate("showEmailLogin", event.target.checked)}
           />
-          הצגת כניסה עם אימייל וקוד חד-פעמי
+          <span className="switch-track" aria-hidden="true">
+            <span className="switch-thumb" />
+          </span>
         </label>
         <label>
           טקסט ברירת מחדל לפני שדה תשובה
           <input
             className="admin-input"
-            value={settings.defaultAnswerLabel ?? "הכניסו מספר"}
+            value={settings.defaultAnswerLabel ?? "הכניסו את הקוד"}
             onChange={(event) => onUpdate("defaultAnswerLabel", event.target.value)}
-            placeholder="הכניסו מספר"
+            placeholder="הכניסו את הקוד"
           />
         </label>
         <p className="admin-help-text">

@@ -11,7 +11,7 @@ export const roomConfig = {
   finalSuccessButtonLabel: "חזרה לשלבים",
   passwordProtected: false,
   showEmailLogin: true,
-  defaultAnswerLabel: "הכניסו מספר",
+  defaultAnswerLabel: "הכניסו את הקוד",
   questionPoints: 10,
   wrongAnswerPenalty: 1,
   finalBonusPoints: 50,

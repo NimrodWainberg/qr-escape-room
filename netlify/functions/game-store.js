@@ -48,7 +48,7 @@ const defaultGameConfig = {
 
 const defaultGlobalSettings = {
   showEmailLogin: true,
-  defaultAnswerLabel: "הכניסו מספר",
+  defaultAnswerLabel: "הכניסו את הקוד",
 };
 
 export function initBlobContext(event) {
@@ -154,12 +154,14 @@ function cleanAnswerInputMode(value) {
 
 export function sanitizeGlobalSettings(settings) {
   const source = settings && typeof settings === "object" ? settings : defaultGlobalSettings;
+  const defaultAnswerLabel = cleanString(source.defaultAnswerLabel, defaultGlobalSettings.defaultAnswerLabel);
 
   return {
     showEmailLogin: source.showEmailLogin === false ? false : defaultGlobalSettings.showEmailLogin,
     defaultAnswerLabel:
-      cleanString(source.defaultAnswerLabel, defaultGlobalSettings.defaultAnswerLabel) ||
-      defaultGlobalSettings.defaultAnswerLabel,
+      !defaultAnswerLabel || defaultAnswerLabel === "הכניסו מספר"
+        ? defaultGlobalSettings.defaultAnswerLabel
+        : defaultAnswerLabel,
   };
 }
 
@@ -599,6 +601,11 @@ async function sendOtpEmail({ email, name, code }) {
     });
 
     if (!response.ok) {
+      console.error("otp_email_failed", {
+        provider: provider.name,
+        status: response.status,
+        body: await response.text().catch(() => ""),
+      });
       throw new Error("email_failed");
     }
 
@@ -623,6 +630,11 @@ async function sendOtpEmail({ email, name, code }) {
   });
 
   if (!response.ok) {
+    console.error("otp_email_failed", {
+      provider: provider.name,
+      status: response.status,
+      body: await response.text().catch(() => ""),
+    });
     throw new Error("email_failed");
   }
 

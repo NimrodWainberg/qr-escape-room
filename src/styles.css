@@ -1226,6 +1226,24 @@ h1 {
   gap: 1rem;
 }
 
+.loading-section {
+  min-height: min(42rem, calc(100vh - 10rem));
+  place-items: center;
+  align-content: center;
+  text-align: center;
+}
+
+.loading-section .spin-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--teal);
+}
+
+.loading-section h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+}
+
 .admin-section {
   min-width: 0;
   margin: 0;
@@ -1327,6 +1345,77 @@ h1 {
 
 .setting-check {
   width: fit-content;
+}
+
+.switch-setting {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.switch-setting span:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.switch-setting strong {
+  font-weight: 900;
+}
+
+.switch-setting small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.switch-setting input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 3.6rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 18%, var(--surface-strong));
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.18rem;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 5px 14px rgb(0 0 0 / 18%);
+  transition: transform 160ms ease;
+}
+
+.switch-setting input:checked + .switch-track {
+  border-color: color-mix(in srgb, var(--teal) 70%, var(--line));
+  background: linear-gradient(135deg, var(--teal), var(--violet));
+}
+
+.switch-setting input:checked + .switch-track .switch-thumb {
+  transform: translateX(-1.6rem);
+}
+
+.switch-setting input:focus-visible + .switch-track {
+  outline: 3px solid color-mix(in srgb, var(--teal) 24%, transparent);
+  outline-offset: 3px;
 }
 
 .admin-game-card.is-active {
