@@ -912,6 +912,8 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
   const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
     ? roomConfig.puzzleTheme
     : "vacation";
+  const slotCount = Math.max(6, challenges.length);
+  const puzzleSlots = Array.from({ length: slotCount }, (_, index) => challenges[index] ?? null);
 
   return (
     <section className={`puzzle-progress puzzle-${theme} ${finalUnlocked ? "is-complete" : ""}`} aria-label="פאזל התקדמות">
@@ -931,26 +933,32 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
           <span className="puzzle-landmark" />
         </div>
 
-        <div className="jigsaw-board" style={{ "--piece-count": challenges.length }}>
-          {challenges.map((challenge, index) => {
-            const solvedChallenge = isChallengeSolved(challenge, solved);
-            const unlockedChallenge = isChallengeUnlocked(challenges, challenge, solved);
-            const state = solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
+        <div className="jigsaw-board" style={{ "--piece-count": slotCount }}>
+          {puzzleSlots.map((challenge, index) => {
+            const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
+            const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
+            const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
+            const col = index % 3;
+            const row = Math.floor(index / 3);
 
             return (
               <button
                 className={`jigsaw-slot ${state}`}
-                key={challenge.id}
+                key={challenge?.id ?? `mystery-${index}`}
                 type="button"
-                style={{ "--piece-index": index }}
-                disabled={!unlockedChallenge}
-                onClick={() => onNavigate(challenge.path)}
-                aria-label={`${challenge.title}: ${
-                  solvedChallenge ? "נפתר" : unlockedChallenge ? "פתוח" : "נעול"
-                }`}
+                style={{ "--piece-index": index, "--piece-col": col, "--piece-row": row }}
+                disabled={!challenge || !unlockedChallenge}
+                onClick={() => challenge && onNavigate(challenge.path)}
+                aria-label={
+                  challenge
+                    ? `${challenge.title}: ${solvedChallenge ? "נפתר" : unlockedChallenge ? "פתוח" : "נעול"}`
+                    : "חלק מסתורי בפאזל"
+                }
               >
-                <JigsawPieceSvg filled={solvedChallenge} />
-                <span className="jigsaw-piece-number">{challenge.id}</span>
+                <span className="jigsaw-empty-art" aria-hidden="true" />
+                <span className="jigsaw-image-piece" aria-hidden="true" />
+                <JigsawPieceSvg filled={solvedChallenge} mystery={!challenge} />
+                {challenge && <span className="jigsaw-piece-number">{challenge.id}</span>}
                 {solvedChallenge ? (
                   <>
                     <span className="jigsaw-piece-reward">{challenge.reward}</span>
@@ -958,6 +966,8 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
                       <Check aria-hidden="true" />
                     </span>
                   </>
+                ) : !challenge ? (
+                  <span className="jigsaw-piece-mystery">?</span>
                 ) : (
                   <span className="jigsaw-piece-lock">
                     <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />
@@ -983,11 +993,11 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
   );
 }
 
-function JigsawPieceSvg({ filled }) {
+function JigsawPieceSvg({ filled, mystery = false }) {
   return (
     <svg className="jigsaw-piece-shape" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
       <path
-        className={filled ? "jigsaw-piece-fill" : "jigsaw-piece-outline"}
+        className={filled ? "jigsaw-piece-fill" : mystery ? "jigsaw-piece-mystery-outline" : "jigsaw-piece-outline"}
         d="M44 8C57 8 64 18 61 31H100V51C90 47 80 53 80 63C80 73 90 79 100 75V112H61C64 99 57 90 44 90C31 90 24 99 27 112H8V75C18 79 28 73 28 63C28 53 18 47 8 51V31H44C41 18 31 8 44 8Z"
       />
     </svg>
