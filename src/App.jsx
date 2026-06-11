@@ -941,7 +941,8 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
             const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
             const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
             const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
-            const col = index % 3;
+            const visualIndex = getRtlJigsawIndex(index);
+            const col = visualIndex % 3;
             const row = Math.floor(index / 3);
 
             return (
@@ -949,7 +950,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
                 className={`jigsaw-slot ${state}`}
                 key={challenge?.id ?? `mystery-${index}`}
                 type="button"
-                style={{ "--piece-index": index, "--piece-col": col, "--piece-row": row }}
+                style={{ "--piece-index": visualIndex, "--piece-col": col, "--piece-row": row }}
                 disabled={!challenge || !unlockedChallenge}
                 onClick={() => challenge && onNavigate(challenge.path)}
                 aria-label={
@@ -958,7 +959,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
                     : "חלק מסתורי בפאזל"
                 }
               >
-                <JigsawPieceSvg filled={solvedChallenge} mystery={!challenge} index={index} />
+                <JigsawPieceSvg filled={solvedChallenge} mystery={!challenge} index={visualIndex} />
                 {challenge && <span className="jigsaw-piece-number">{challenge.id}</span>}
                 {solvedChallenge ? (
                   <>
@@ -997,6 +998,12 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
 const JIGSAW_COLUMNS = 3;
 const JIGSAW_ROWS = 2;
 const JIGSAW_TAB_DEPTH = 14;
+
+function getRtlJigsawIndex(index) {
+  const row = Math.floor(index / JIGSAW_COLUMNS);
+  const col = index % JIGSAW_COLUMNS;
+  return row * JIGSAW_COLUMNS + (JIGSAW_COLUMNS - 1 - col);
+}
 
 function getSharedVerticalEdge(row, col) {
   return (row + col) % 2 === 0 ? 1 : -1;
