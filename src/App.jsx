@@ -939,6 +939,8 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
         </div>
 
         <div className="jigsaw-board" style={{ "--piece-count": slotCount }}>
+          <JigsawBoardPicture puzzleSlots={puzzleSlots} challenges={challenges} solved={solved} />
+
           {puzzleSlots.map((challenge, index) => {
             const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
             const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
@@ -961,7 +963,6 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
                     : "חלק מסתורי בפאזל"
                 }
               >
-                <JigsawPieceSvg filled={solvedChallenge} mystery={!challenge} index={visualIndex} />
                 {challenge && <span className="jigsaw-piece-number">{challenge.id}</span>}
                 {solvedChallenge ? (
                   <>
@@ -1005,7 +1006,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
 
 const JIGSAW_COLUMNS = 3;
 const JIGSAW_ROWS = 2;
-const JIGSAW_TAB_DEPTH = 14;
+const JIGSAW_TAB_DEPTH = 32;
 
 function getRtlJigsawIndex(index) {
   const row = Math.floor(index / JIGSAW_COLUMNS);
@@ -1033,19 +1034,18 @@ function getJigsawEdges(index) {
   };
 }
 
-function horizontalJigsawEdge(y, fromX, toX, direction) {
-  if (!direction) {
+function horizontalJigsawEdge(y, fromX, toX, outwardDirection) {
+  if (!outwardDirection) {
     return `L${toX} ${y}`;
   }
 
   const length = toX - fromX;
   const edgeDirection = Math.sign(length);
-  const outward = -direction;
   const first = fromX + length * 0.32;
   const neckStart = fromX + length * 0.41;
   const neckEnd = fromX + length * 0.59;
   const second = fromX + length * 0.68;
-  const depth = JIGSAW_TAB_DEPTH * outward;
+  const depth = JIGSAW_TAB_DEPTH * outwardDirection;
 
   return [
     `L${first} ${y}`,
@@ -1081,49 +1081,90 @@ function verticalJigsawEdge(x, fromY, toY, direction) {
 
 function createJigsawPath(index) {
   const edges = getJigsawEdges(index);
+  const col = index % JIGSAW_COLUMNS;
+  const row = Math.floor(index / JIGSAW_COLUMNS);
+  const x = col * 100;
+  const y = row * 100;
 
   return [
-    "M10 10",
-    horizontalJigsawEdge(10, 10, 110, edges.top),
-    verticalJigsawEdge(110, 10, 110, edges.right),
-    horizontalJigsawEdge(110, 110, 10, edges.bottom),
-    verticalJigsawEdge(10, 110, 10, edges.left),
+    `M${x} ${y}`,
+    horizontalJigsawEdge(y, x, x + 100, -edges.top),
+    verticalJigsawEdge(x + 100, y, y + 100, edges.right),
+    horizontalJigsawEdge(y + 100, x + 100, x, edges.bottom),
+    verticalJigsawEdge(x, y + 100, y, -edges.left),
     "Z",
   ].join(" ");
 }
 
-function JigsawPieceSvg({ filled, mystery = false, index = 0 }) {
-  const path = createJigsawPath(index);
-  const col = index % 3;
-  const row = Math.floor(index / 3);
-  const patternId = `jigsaw-picture-${index}`;
-  const shadeId = `jigsaw-picture-shade-${index}`;
+function JigsawBoardPicture({ puzzleSlots, challenges, solved }) {
+  const shadeId = "jigsaw-board-picture-shade";
 
   return (
-    <svg className="jigsaw-piece-shape" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+    <svg className="jigsaw-board-picture" viewBox="0 0 300 200" aria-hidden="true" focusable="false">
       <defs>
-        <pattern id={patternId} patternUnits="userSpaceOnUse" width="360" height="240" x={-col * 120} y={-row * 120}>
-          <rect width="360" height="240" fill="#1b63d7" />
-          <circle cx="172" cy="105" r="34" fill="#ffe080" />
-          <circle cx="178" cy="141" r="43" fill="#55bf76" />
-          <circle cx="94" cy="171" r="31" fill="#86513a" />
-          <circle cx="273" cy="168" r="34" fill="#4468ce" />
-          <circle cx="76" cy="76" r="35" fill="#ff6b5f" />
-          <circle cx="286" cy="62" r="30" fill="#8f6cff" />
-          <path d="M0 168C52 126 88 138 137 173C193 213 229 170 360 122V240H0Z" fill="#1c8e78" opacity="0.9" />
-          <path d="M0 0H360V240H0Z" fill={`url(#${shadeId})`} />
-        </pattern>
         <linearGradient id={shadeId} x1="0" x2="1" y1="0" y2="1">
           <stop offset="0" stopColor="white" stopOpacity="0.18" />
           <stop offset="0.42" stopColor="#2a234f" stopOpacity="0.08" />
           <stop offset="1" stopColor="#f4a640" stopOpacity="0.24" />
         </linearGradient>
       </defs>
-      <path
-        className={filled ? "jigsaw-piece-fill" : mystery ? "jigsaw-piece-mystery-outline" : "jigsaw-piece-outline"}
-        d={path}
-        fill={filled ? `url(#${patternId})` : undefined}
-      />
+
+      <g className="jigsaw-full-picture">
+        <rect width="300" height="200" fill="#55c7f3" />
+        <path d="M0 0H300V118C246 104 216 124 174 112C124 98 94 80 42 105C22 115 10 118 0 119Z" fill="#8edff5" />
+        <path d="M180 0H300V92C265 75 234 77 204 91C191 70 184 39 180 0Z" fill="#ffd166" opacity="0.88" />
+        <path d="M0 20C45 2 92 12 129 38C160 60 195 62 230 43C257 28 279 26 300 34V75C257 62 230 68 197 88C152 115 112 86 76 61C45 39 19 37 0 46Z" fill="#ff8b4f" opacity="0.62" />
+        <circle cx="246" cy="41" r="28" fill="#ffd166" />
+        <circle cx="226" cy="58" r="48" fill="#ffd166" opacity="0.4" />
+        <path d="M0 80C54 58 93 73 136 96C188 124 225 95 300 78V147C241 160 198 181 144 154C93 129 46 121 0 144Z" fill="#f7c970" opacity="0.72" />
+        <path d="M0 96C63 81 101 98 144 119C200 147 241 116 300 102V154C247 173 200 195 137 164C83 138 42 130 0 151Z" fill="#38b88f" opacity="0.8" />
+        <path d="M22 34C44 23 66 24 84 38M184 36C204 24 226 24 247 38" stroke="#fff7d0" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.72" />
+        <path d="M0 126C37 106 68 116 98 133C139 156 169 133 205 124C241 115 270 133 300 118V200H0Z" fill="#f5d484" />
+        <path d="M0 151C53 128 98 142 142 159C201 181 247 150 300 137V200H0Z" fill="#2db6a3" />
+        <path d="M0 169C58 151 100 160 152 177C201 193 244 172 300 157V200H0Z" fill="#177f88" opacity="0.92" />
+        <path d="M140 80C132 98 126 121 115 143" stroke="#81522f" strokeWidth="8" strokeLinecap="round" fill="none" />
+        <path d="M142 77C116 80 96 93 83 113C110 109 134 100 142 77Z" fill="#24956f" />
+        <path d="M145 74C166 76 188 86 205 105C179 106 155 96 145 74Z" fill="#2ba778" />
+        <path d="M143 75C132 55 113 43 87 37C102 61 122 75 143 75Z" fill="#35b982" />
+        <path d="M145 76C157 56 176 43 203 39C189 62 167 76 145 76Z" fill="#1f8f68" />
+        <path d="M35 66L54 53L74 66L66 90H43Z" fill="#ff8b4f" />
+        <path d="M47 66H62V90H47Z" fill="#6f4b37" opacity="0.78" />
+        <path d="M32 67L54 43L77 67Z" fill="#f25f5c" />
+        <path d="M213 139C229 126 248 126 264 139" stroke="#fff7d0" strokeWidth="7" strokeLinecap="round" fill="none" opacity="0.82" />
+        <path d="M0 0H300V200H0Z" fill={`url(#${shadeId})`} />
+      </g>
+
+      {puzzleSlots.map((challenge, index) => {
+        const visualIndex = getRtlJigsawIndex(index);
+        const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
+        const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
+        const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
+
+        return (
+          <path
+            className={`jigsaw-piece-fill-layer ${state}`}
+            d={createJigsawPath(visualIndex)}
+            fill={state === "is-filled" ? "transparent" : "#1b94df"}
+            key={challenge?.id ?? `mystery-picture-${index}`}
+          />
+        );
+      })}
+
+      {puzzleSlots.map((challenge, index) => {
+        const visualIndex = getRtlJigsawIndex(index);
+        const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
+        const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
+        const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
+
+        return (
+          <path
+            className={`jigsaw-piece-seam-layer ${state}`}
+            d={createJigsawPath(visualIndex)}
+            fill="none"
+            key={challenge?.id ?? `mystery-seam-${index}`}
+          />
+        );
+      })}
     </svg>
   );
 }
