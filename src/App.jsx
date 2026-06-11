@@ -955,9 +955,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
                     : "חלק מסתורי בפאזל"
                 }
               >
-                <span className="jigsaw-empty-art" aria-hidden="true" />
-                <span className="jigsaw-image-piece" aria-hidden="true" />
-                <JigsawPieceSvg filled={solvedChallenge} mystery={!challenge} />
+                <JigsawPieceSvg filled={solvedChallenge} mystery={!challenge} index={index} />
                 {challenge && <span className="jigsaw-piece-number">{challenge.id}</span>}
                 {solvedChallenge ? (
                   <>
@@ -993,12 +991,46 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
   );
 }
 
-function JigsawPieceSvg({ filled, mystery = false }) {
+const JIGSAW_PATHS = [
+  "M6 6H44C41 19 49 29 61 29C73 29 81 19 78 6H114V42C101 39 91 47 91 59C91 71 101 79 114 76V114H78C81 101 73 91 61 91C49 91 41 101 44 114H6V78C19 81 29 73 29 61C29 49 19 41 6 44Z",
+  "M6 6H42C39 19 47 29 59 29C71 29 79 19 76 6H114V44C101 41 91 49 91 61C91 73 101 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C-7 81 -17 73 -17 61C-17 49 -7 41 6 44Z",
+  "M6 6H114V44C101 41 91 49 91 61C91 73 101 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C19 81 29 73 29 61C29 49 19 41 6 44V6Z",
+  "M6 6H44C41 -7 49 -17 61 -17C73 -17 81 -7 78 6H114V42C101 39 91 47 91 59C91 71 101 79 114 76V114H6V78C19 81 29 73 29 61C29 49 19 41 6 44Z",
+  "M6 6H42C39 -7 47 -17 59 -17C71 -17 79 -7 76 6H114V44C127 41 137 49 137 61C137 73 127 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C-7 81 -17 73 -17 61C-17 49 -7 41 6 44Z",
+  "M6 6H114V44C127 41 137 49 137 61C137 73 127 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C19 81 29 73 29 61C29 49 19 41 6 44V6Z",
+];
+
+function JigsawPieceSvg({ filled, mystery = false, index = 0 }) {
+  const path = JIGSAW_PATHS[index % JIGSAW_PATHS.length];
+  const col = index % 3;
+  const row = Math.floor(index / 3);
+  const patternId = `jigsaw-picture-${index}`;
+  const shadeId = `jigsaw-picture-shade-${index}`;
+
   return (
     <svg className="jigsaw-piece-shape" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id={patternId} patternUnits="userSpaceOnUse" width="360" height="240" x={-col * 120} y={-row * 120}>
+          <rect width="360" height="240" fill="#1b63d7" />
+          <circle cx="172" cy="105" r="34" fill="#ffe080" />
+          <circle cx="178" cy="141" r="43" fill="#55bf76" />
+          <circle cx="94" cy="171" r="31" fill="#86513a" />
+          <circle cx="273" cy="168" r="34" fill="#4468ce" />
+          <circle cx="76" cy="76" r="35" fill="#ff6b5f" />
+          <circle cx="286" cy="62" r="30" fill="#8f6cff" />
+          <path d="M0 168C52 126 88 138 137 173C193 213 229 170 360 122V240H0Z" fill="#1c8e78" opacity="0.9" />
+          <path d="M0 0H360V240H0Z" fill={`url(#${shadeId})`} />
+        </pattern>
+        <linearGradient id={shadeId} x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stopColor="white" stopOpacity="0.18" />
+          <stop offset="0.42" stopColor="#2a234f" stopOpacity="0.08" />
+          <stop offset="1" stopColor="#f4a640" stopOpacity="0.24" />
+        </linearGradient>
+      </defs>
       <path
         className={filled ? "jigsaw-piece-fill" : mystery ? "jigsaw-piece-mystery-outline" : "jigsaw-piece-outline"}
-        d="M44 8C57 8 64 18 61 31H100V51C90 47 80 53 80 63C80 73 90 79 100 75V112H61C64 99 57 90 44 90C31 90 24 99 27 112H8V75C18 79 28 73 28 63C28 53 18 47 8 51V31H44C41 18 31 8 44 8Z"
+        d={path}
+        fill={filled ? `url(#${patternId})` : undefined}
       />
     </svg>
   );
