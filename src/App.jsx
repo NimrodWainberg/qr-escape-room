@@ -898,14 +898,16 @@ function HomePage({
         </div>
       )}
 
-      <button
-        className={`primary-button wide-button ${finalUnlocked ? "" : "is-soft-locked"}`}
-        type="button"
-        onClick={() => onNavigate("/final")}
-      >
-        {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
-        {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
-      </button>
+      {!usePuzzleMode && (
+        <button
+          className={`primary-button wide-button ${finalUnlocked ? "" : "is-soft-locked"}`}
+          type="button"
+          onClick={() => onNavigate("/final")}
+        >
+          {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
+          {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
+        </button>
+      )}
     </section>
   );
 }
@@ -990,6 +992,12 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
           {solvedCount}/{challenges.length}
         </strong>
         <span>{finalUnlocked ? "התמונה נפתחה במלואה" : "חלקים נחשפו"}</span>
+        {finalUnlocked && (
+          <button className="primary-button puzzle-final-button" type="button" onClick={() => onNavigate("/final")}>
+            <Trophy aria-hidden="true" />
+            הזנת הקוד הסופי
+          </button>
+        )}
       </div>
     </section>
   );

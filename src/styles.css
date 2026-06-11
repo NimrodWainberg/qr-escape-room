@@ -1000,6 +1000,11 @@ h1 {
   unicode-bidi: isolate;
 }
 
+.puzzle-final-button {
+  margin-inline-start: auto;
+  min-width: min(100%, 14rem);
+}
+
 .puzzle-progress.is-complete {
   border-color: color-mix(in srgb, var(--green) 70%, var(--line));
 }
