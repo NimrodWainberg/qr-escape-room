@@ -304,6 +304,7 @@ export default function App() {
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
   const [configStatus, setConfigStatus] = useState("loading");
+  const [recentlySolvedId, setRecentlySolvedId] = useState(null);
   const { roomConfig, challenges } = gameConfig;
 
   useEffect(() => {
@@ -357,6 +358,7 @@ export default function App() {
 
   useEffect(() => {
     setSolved(readSolved(gameId));
+    setRecentlySolvedId(null);
     setPlayerSession(readPlayerSession(gameId));
     setGameUnlocked(readGameAccess(gameId));
   }, [gameId]);
@@ -441,11 +443,13 @@ export default function App() {
       localStorage.setItem(storageKeyForGame(STORAGE_KEY, gameId), JSON.stringify(next));
       return next;
     });
+    setRecentlySolvedId(challengeId);
   }
 
   function resetProgress() {
     localStorage.removeItem(storageKeyForGame(STORAGE_KEY, gameId));
     setSolved({});
+    setRecentlySolvedId(null);
   }
 
   async function loadLeaderboard() {
@@ -627,6 +631,7 @@ export default function App() {
               roomConfig={roomConfig}
               configStatus={configStatus}
               playerSession={playerSession}
+              recentlySolvedId={recentlySolvedId}
               solved={solved}
               solvedCount={solvedCount}
               onOpenLogin={() => setShowLoginModal(true)}
@@ -661,6 +666,7 @@ export default function App() {
               roomConfig={roomConfig}
               configStatus={configStatus}
               playerSession={playerSession}
+              recentlySolvedId={recentlySolvedId}
               solved={solved}
               solvedCount={solvedCount}
               onOpenLogin={() => setShowLoginModal(true)}
@@ -692,6 +698,7 @@ export default function App() {
             roomConfig={roomConfig}
             configStatus={configStatus}
             playerSession={playerSession}
+            recentlySolvedId={recentlySolvedId}
             solved={solved}
             solvedCount={solvedCount}
             onOpenLogin={() => setShowLoginModal(true)}
@@ -816,6 +823,7 @@ function HomePage({
   roomConfig,
   configStatus,
   playerSession,
+  recentlySolvedId,
   solved,
   solvedCount,
   onOpenLogin,
@@ -869,6 +877,7 @@ function HomePage({
         <PuzzleProgress
           challenges={challenges}
           roomConfig={roomConfig}
+          recentlySolvedId={recentlySolvedId}
           solved={solved}
           finalUnlocked={finalUnlocked}
           onNavigate={onNavigate}
@@ -926,7 +935,7 @@ function HomePage({
   );
 }
 
-function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavigate }) {
+function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, finalUnlocked, onNavigate }) {
   const solvedCount = challenges.filter((challenge) => isChallengeSolved(challenge, solved)).length;
   const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
     ? roomConfig.puzzleTheme
@@ -965,13 +974,14 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
             const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
             const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
             const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
+            const recentlySolved = challenge?.id === recentlySolvedId;
             const visualIndex = getRtlJigsawIndex(index);
             const col = visualIndex % 3;
             const row = Math.floor(index / 3);
 
             return (
               <button
-                className={`jigsaw-slot ${state}`}
+                className={`jigsaw-slot ${state} ${recentlySolved ? "is-recently-solved" : ""}`}
                 key={challenge?.id ?? `mystery-${index}`}
                 type="button"
                 style={{ "--piece-index": visualIndex, "--piece-col": col, "--piece-row": row }}
@@ -985,12 +995,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
               >
                 {challenge && <span className="jigsaw-piece-number">{challenge.id}</span>}
                 {solvedChallenge ? (
-                  <>
-                    <span className="jigsaw-piece-reward">{challenge.reward}</span>
-                    <span className="jigsaw-piece-check">
-                      <Check aria-hidden="true" />
-                    </span>
-                  </>
+                  <span className="jigsaw-piece-reward">{challenge.reward}</span>
                 ) : !challenge ? (
                   <span className="jigsaw-piece-mystery">?</span>
                 ) : (
@@ -1116,6 +1121,28 @@ function createJigsawPath(index) {
   ].join(" ");
 }
 
+function createJigsawSeamPath() {
+  const paths = [];
+
+  for (let row = 0; row < JIGSAW_ROWS; row += 1) {
+    for (let col = 0; col < JIGSAW_COLUMNS - 1; col += 1) {
+      const x = (col + 1) * 100;
+      const y = row * 100;
+      paths.push(`M${x} ${y} ${verticalJigsawEdge(x, y, y + 100, getSharedVerticalEdge(row, col))}`);
+    }
+  }
+
+  for (let row = 0; row < JIGSAW_ROWS - 1; row += 1) {
+    for (let col = 0; col < JIGSAW_COLUMNS; col += 1) {
+      const x = col * 100;
+      const y = (row + 1) * 100;
+      paths.push(`M${x} ${y} ${horizontalJigsawEdge(y, x, x + 100, getSharedHorizontalEdge(row, col))}`);
+    }
+  }
+
+  return paths.join(" ");
+}
+
 function PuzzlePictureArt({ theme, imageUrl, shadeId }) {
   if (imageUrl) {
     return (
@@ -1220,21 +1247,8 @@ function JigsawBoardPicture({ puzzleSlots, challenges, solved, theme, imageUrl }
         );
       })}
 
-      {puzzleSlots.map((challenge, index) => {
-        const visualIndex = getRtlJigsawIndex(index);
-        const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
-        const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
-        const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
-
-        return (
-          <path
-            className={`jigsaw-piece-seam-layer ${state}`}
-            d={createJigsawPath(visualIndex)}
-            fill="none"
-            key={challenge?.id ?? `mystery-seam-${index}`}
-          />
-        );
-      })}
+      <path className="jigsaw-board-seams" d={createJigsawSeamPath()} fill="none" />
+      <path className="jigsaw-board-outline" d="M0 0H300V200H0Z" fill="none" />
     </svg>
   );
 }
