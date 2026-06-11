@@ -494,6 +494,10 @@ h1 {
   gap: 0.8rem;
 }
 
+.hero-section.is-puzzle-mode {
+  gap: clamp(1.1rem, 2.5vw, 1.6rem);
+}
+
 .leaderboard-panel {
   display: grid;
   gap: 0.9rem;
@@ -696,6 +700,28 @@ h1 {
   margin: 0;
   color: var(--muted);
   font-weight: 800;
+}
+
+.is-puzzle-mode .puzzle-progress {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  padding: clamp(1rem, 2vw, 1.4rem);
+}
+
+.is-puzzle-mode .puzzle-copy {
+  max-width: 46rem;
+}
+
+.is-puzzle-mode .puzzle-copy h2 {
+  font-size: clamp(2rem, 5vw, 4rem);
+}
+
+.is-puzzle-mode .puzzle-stage {
+  min-height: clamp(24rem, 55vw, 38rem);
+}
+
+.is-puzzle-mode .jigsaw-board {
+  width: min(100%, 58rem);
 }
 
 .puzzle-stage {
@@ -2835,6 +2861,14 @@ h1 {
     gap: 0;
     width: min(100%, 31rem);
   }
+
+  .is-puzzle-mode .puzzle-stage {
+    min-height: clamp(20rem, 68vw, 32rem);
+  }
+
+  .is-puzzle-mode .jigsaw-board {
+    width: min(100%, 42rem);
+  }
 }
 
 @media (max-width: 560px) {
@@ -2940,6 +2974,18 @@ h1 {
     gap: 0;
     padding: 0.35rem;
     border-width: 0.38rem;
+  }
+
+  .is-puzzle-mode .puzzle-progress {
+    padding: 0.8rem;
+  }
+
+  .is-puzzle-mode .puzzle-stage {
+    min-height: clamp(16.5rem, 76vw, 22rem);
+  }
+
+  .is-puzzle-mode .jigsaw-board {
+    width: 100%;
   }
 
   .jigsaw-piece-number {

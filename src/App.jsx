@@ -809,9 +809,10 @@ function HomePage({
   onReset,
 }) {
   const finalUnlocked = areAllChallengesSolved(challenges, solved);
+  const usePuzzleMode = roomConfig.puzzleMode === "reveal";
 
   return (
-    <section className="hero-section">
+    <section className={`hero-section ${usePuzzleMode ? "is-puzzle-mode" : ""}`}>
       <div className="hero-copy">
         <p className="eyebrow">המשימה מתחילה כאן</p>
         <h1>{roomConfig.title}</h1>
@@ -850,7 +851,7 @@ function HomePage({
         </button>
       </div>
 
-      {roomConfig.puzzleMode === "reveal" && (
+      {usePuzzleMode && (
         <PuzzleProgress
           challenges={challenges}
           roomConfig={roomConfig}
@@ -860,40 +861,42 @@ function HomePage({
         />
       )}
 
-      <div className="challenge-grid">
-        {challenges.map((challenge) => {
-          const solvedChallenge = isChallengeSolved(challenge, solved);
-          const unlockedChallenge = isChallengeUnlocked(challenges, challenge, solved);
-          const cardState = solvedChallenge ? "is-solved" : unlockedChallenge ? "is-unlocked" : "is-locked";
+      {!usePuzzleMode && (
+        <div className="challenge-grid">
+          {challenges.map((challenge) => {
+            const solvedChallenge = isChallengeSolved(challenge, solved);
+            const unlockedChallenge = isChallengeUnlocked(challenges, challenge, solved);
+            const cardState = solvedChallenge ? "is-solved" : unlockedChallenge ? "is-unlocked" : "is-locked";
 
-          return (
-            <button
-              className={`challenge-card ${cardState}`}
-              key={challenge.id}
-              type="button"
-              aria-disabled={!unlockedChallenge}
-              onClick={() => onNavigate(challenge.path)}
-            >
-              <span className="card-index">{challenge.id}</span>
-              <span>
-                <strong>{challenge.title}</strong>
-                <small>
-                  {solvedChallenge
-                    ? `נמצא: ${challenge.reward}`
-                    : unlockedChallenge
-                      ? "המנעול פתוח"
-                      : "נעול עד השלב הקודם"}
-                </small>
-              </span>
-              {solvedChallenge ? (
-                <Check aria-hidden="true" />
-              ) : (
-                <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />
-              )}
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                className={`challenge-card ${cardState}`}
+                key={challenge.id}
+                type="button"
+                aria-disabled={!unlockedChallenge}
+                onClick={() => onNavigate(challenge.path)}
+              >
+                <span className="card-index">{challenge.id}</span>
+                <span>
+                  <strong>{challenge.title}</strong>
+                  <small>
+                    {solvedChallenge
+                      ? `נמצא: ${challenge.reward}`
+                      : unlockedChallenge
+                        ? "המנעול פתוח"
+                        : "נעול עד השלב הקודם"}
+                  </small>
+                </span>
+                {solvedChallenge ? (
+                  <Check aria-hidden="true" />
+                ) : (
+                  <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <button
         className={`primary-button wide-button ${finalUnlocked ? "" : "is-soft-locked"}`}
