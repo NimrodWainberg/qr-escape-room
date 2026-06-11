@@ -993,8 +993,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
 
 const JIGSAW_COLUMNS = 3;
 const JIGSAW_ROWS = 2;
-const JIGSAW_EDGE_SIZE = 20;
-const JIGSAW_TAB_DEPTH = 16;
+const JIGSAW_TAB_DEPTH = 14;
 
 function getSharedVerticalEdge(row, col) {
   return (row + col) % 2 === 0 ? 1 : -1;
@@ -1021,16 +1020,20 @@ function horizontalJigsawEdge(y, fromX, toX, direction) {
     return `L${toX} ${y}`;
   }
 
-  const sign = direction * Math.sign(toX - fromX);
-  const first = fromX + (toX - fromX) * 0.36;
-  const second = fromX + (toX - fromX) * 0.64;
-  const center = fromX + (toX - fromX) * 0.5;
+  const length = toX - fromX;
+  const edgeDirection = Math.sign(length);
+  const outward = -direction;
+  const first = fromX + length * 0.32;
+  const neckStart = fromX + length * 0.41;
+  const neckEnd = fromX + length * 0.59;
+  const second = fromX + length * 0.68;
+  const depth = JIGSAW_TAB_DEPTH * outward;
 
   return [
     `L${first} ${y}`,
-    `C${first} ${y - sign * JIGSAW_TAB_DEPTH} ${second} ${y - sign * JIGSAW_TAB_DEPTH} ${second} ${y}`,
-    `C${second} ${y + sign * JIGSAW_EDGE_SIZE * 0.16} ${first} ${y + sign * JIGSAW_EDGE_SIZE * 0.16} ${first} ${y}`,
-    `C${first} ${y - sign * JIGSAW_TAB_DEPTH * 0.85} ${center} ${y - sign * JIGSAW_TAB_DEPTH * 1.08} ${second} ${y}`,
+    `C${first + edgeDirection * 4} ${y} ${neckStart - edgeDirection * 5} ${y + depth * 0.16} ${neckStart} ${y + depth * 0.43}`,
+    `C${neckStart + edgeDirection * 3} ${y + depth * 0.95} ${neckEnd - edgeDirection * 3} ${y + depth * 0.95} ${neckEnd} ${y + depth * 0.43}`,
+    `C${neckEnd + edgeDirection * 5} ${y + depth * 0.16} ${second - edgeDirection * 4} ${y} ${second} ${y}`,
     `L${toX} ${y}`,
   ].join(" ");
 }
@@ -1040,16 +1043,20 @@ function verticalJigsawEdge(x, fromY, toY, direction) {
     return `L${x} ${toY}`;
   }
 
-  const sign = direction * Math.sign(toY - fromY);
-  const first = fromY + (toY - fromY) * 0.36;
-  const second = fromY + (toY - fromY) * 0.64;
-  const center = fromY + (toY - fromY) * 0.5;
+  const length = toY - fromY;
+  const edgeDirection = Math.sign(length);
+  const outward = direction;
+  const first = fromY + length * 0.32;
+  const neckStart = fromY + length * 0.41;
+  const neckEnd = fromY + length * 0.59;
+  const second = fromY + length * 0.68;
+  const depth = JIGSAW_TAB_DEPTH * outward;
 
   return [
     `L${x} ${first}`,
-    `C${x + sign * JIGSAW_TAB_DEPTH} ${first} ${x + sign * JIGSAW_TAB_DEPTH} ${second} ${x} ${second}`,
-    `C${x - sign * JIGSAW_EDGE_SIZE * 0.16} ${second} ${x - sign * JIGSAW_EDGE_SIZE * 0.16} ${first} ${x} ${first}`,
-    `C${x + sign * JIGSAW_TAB_DEPTH * 0.85} ${first} ${x + sign * JIGSAW_TAB_DEPTH * 1.08} ${center} ${x} ${second}`,
+    `C${x + depth * 0.16} ${first + edgeDirection * 4} ${x + depth * 0.43} ${neckStart - edgeDirection * 5} ${x + depth * 0.43} ${neckStart}`,
+    `C${x + depth * 0.95} ${neckStart + edgeDirection * 3} ${x + depth * 0.95} ${neckEnd - edgeDirection * 3} ${x + depth * 0.43} ${neckEnd}`,
+    `C${x + depth * 0.16} ${neckEnd + edgeDirection * 5} ${x} ${second - edgeDirection * 4} ${x} ${second}`,
     `L${x} ${toY}`,
   ].join(" ");
 }

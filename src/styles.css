@@ -1238,26 +1238,29 @@ h1 {
 
 .jigsaw-piece-shape {
   z-index: 2;
-  opacity: 0.94;
-  filter: drop-shadow(0 7px 14px rgb(0 0 0 / 22%));
+  opacity: 0.98;
+  filter:
+    drop-shadow(0 9px 14px rgb(0 0 0 / 20%))
+    drop-shadow(0 1px 0 rgb(255 255 255 / 42%));
   pointer-events: none;
 }
 
 .jigsaw-piece-outline,
 .jigsaw-piece-mystery-outline {
-  fill: transparent;
-  stroke: rgb(255 255 255 / 76%);
-  stroke-width: 3.2;
-  stroke-dasharray: 8 6;
+  fill: rgb(255 255 255 / 12%);
+  stroke: rgb(255 255 255 / 74%);
+  stroke-width: 3.6;
+  stroke-dasharray: 13 8;
 }
 
 .jigsaw-piece-mystery-outline {
-  stroke: rgb(255 255 255 / 92%);
+  fill: rgb(255 255 255 / 8%);
+  stroke: rgb(255 255 255 / 9%);
 }
 
 .jigsaw-piece-fill {
-  stroke: rgb(255 255 255 / 88%);
-  stroke-width: 2.5;
+  stroke: rgb(255 255 255 / 92%);
+  stroke-width: 3;
 }
 
 .jigsaw-slot.is-empty,
