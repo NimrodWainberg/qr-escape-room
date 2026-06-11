@@ -991,17 +991,84 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
   );
 }
 
-const JIGSAW_PATHS = [
-  "M6 6H44C41 19 49 29 61 29C73 29 81 19 78 6H114V42C101 39 91 47 91 59C91 71 101 79 114 76V114H78C81 101 73 91 61 91C49 91 41 101 44 114H6V78C19 81 29 73 29 61C29 49 19 41 6 44Z",
-  "M6 6H42C39 19 47 29 59 29C71 29 79 19 76 6H114V44C101 41 91 49 91 61C91 73 101 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C-7 81 -17 73 -17 61C-17 49 -7 41 6 44Z",
-  "M6 6H114V44C101 41 91 49 91 61C91 73 101 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C19 81 29 73 29 61C29 49 19 41 6 44V6Z",
-  "M6 6H44C41 -7 49 -17 61 -17C73 -17 81 -7 78 6H114V42C101 39 91 47 91 59C91 71 101 79 114 76V114H6V78C19 81 29 73 29 61C29 49 19 41 6 44Z",
-  "M6 6H42C39 -7 47 -17 59 -17C71 -17 79 -7 76 6H114V44C127 41 137 49 137 61C137 73 127 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C-7 81 -17 73 -17 61C-17 49 -7 41 6 44Z",
-  "M6 6H114V44C127 41 137 49 137 61C137 73 127 81 114 78V114H76C79 101 71 91 59 91C47 91 39 101 42 114H6V78C19 81 29 73 29 61C29 49 19 41 6 44V6Z",
-];
+const JIGSAW_COLUMNS = 3;
+const JIGSAW_ROWS = 2;
+const JIGSAW_EDGE_SIZE = 20;
+const JIGSAW_TAB_DEPTH = 16;
+
+function getSharedVerticalEdge(row, col) {
+  return (row + col) % 2 === 0 ? 1 : -1;
+}
+
+function getSharedHorizontalEdge(row, col) {
+  return (row + col) % 2 === 0 ? -1 : 1;
+}
+
+function getJigsawEdges(index) {
+  const col = index % JIGSAW_COLUMNS;
+  const row = Math.floor(index / JIGSAW_COLUMNS);
+
+  return {
+    top: row === 0 ? 0 : -getSharedHorizontalEdge(row - 1, col),
+    right: col === JIGSAW_COLUMNS - 1 ? 0 : getSharedVerticalEdge(row, col),
+    bottom: row === JIGSAW_ROWS - 1 ? 0 : getSharedHorizontalEdge(row, col),
+    left: col === 0 ? 0 : -getSharedVerticalEdge(row, col - 1),
+  };
+}
+
+function horizontalJigsawEdge(y, fromX, toX, direction) {
+  if (!direction) {
+    return `L${toX} ${y}`;
+  }
+
+  const sign = direction * Math.sign(toX - fromX);
+  const first = fromX + (toX - fromX) * 0.36;
+  const second = fromX + (toX - fromX) * 0.64;
+  const center = fromX + (toX - fromX) * 0.5;
+
+  return [
+    `L${first} ${y}`,
+    `C${first} ${y - sign * JIGSAW_TAB_DEPTH} ${second} ${y - sign * JIGSAW_TAB_DEPTH} ${second} ${y}`,
+    `C${second} ${y + sign * JIGSAW_EDGE_SIZE * 0.16} ${first} ${y + sign * JIGSAW_EDGE_SIZE * 0.16} ${first} ${y}`,
+    `C${first} ${y - sign * JIGSAW_TAB_DEPTH * 0.85} ${center} ${y - sign * JIGSAW_TAB_DEPTH * 1.08} ${second} ${y}`,
+    `L${toX} ${y}`,
+  ].join(" ");
+}
+
+function verticalJigsawEdge(x, fromY, toY, direction) {
+  if (!direction) {
+    return `L${x} ${toY}`;
+  }
+
+  const sign = direction * Math.sign(toY - fromY);
+  const first = fromY + (toY - fromY) * 0.36;
+  const second = fromY + (toY - fromY) * 0.64;
+  const center = fromY + (toY - fromY) * 0.5;
+
+  return [
+    `L${x} ${first}`,
+    `C${x + sign * JIGSAW_TAB_DEPTH} ${first} ${x + sign * JIGSAW_TAB_DEPTH} ${second} ${x} ${second}`,
+    `C${x - sign * JIGSAW_EDGE_SIZE * 0.16} ${second} ${x - sign * JIGSAW_EDGE_SIZE * 0.16} ${first} ${x} ${first}`,
+    `C${x + sign * JIGSAW_TAB_DEPTH * 0.85} ${first} ${x + sign * JIGSAW_TAB_DEPTH * 1.08} ${center} ${x} ${second}`,
+    `L${x} ${toY}`,
+  ].join(" ");
+}
+
+function createJigsawPath(index) {
+  const edges = getJigsawEdges(index);
+
+  return [
+    "M10 10",
+    horizontalJigsawEdge(10, 10, 110, edges.top),
+    verticalJigsawEdge(110, 10, 110, edges.right),
+    horizontalJigsawEdge(110, 110, 10, edges.bottom),
+    verticalJigsawEdge(10, 110, 10, edges.left),
+    "Z",
+  ].join(" ");
+}
 
 function JigsawPieceSvg({ filled, mystery = false, index = 0 }) {
-  const path = JIGSAW_PATHS[index % JIGSAW_PATHS.length];
+  const path = createJigsawPath(index);
   const col = index % 3;
   const row = Math.floor(index / 3);
   const patternId = `jigsaw-picture-${index}`;
