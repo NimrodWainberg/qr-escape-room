@@ -709,6 +709,12 @@ h1 {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 30%);
 }
 
+.jigsaw-stage {
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 1.7rem);
+}
+
 .puzzle-treasure .puzzle-stage {
   background: linear-gradient(180deg, #f6d78c 0%, #b9874c 52%, #326b64 100%);
 }
@@ -976,6 +982,185 @@ h1 {
   box-shadow:
     inset 0 0 0 1px rgb(255 255 255 / 38%),
     0 0 0 6px color-mix(in srgb, var(--green) 12%, transparent);
+}
+
+.jigsaw-board {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr));
+  gap: clamp(0.55rem, 1.5vw, 0.9rem);
+  width: min(100%, 42rem);
+  padding: clamp(0.55rem, 2vw, 0.9rem);
+  border: 1px solid rgb(255 255 255 / 42%);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 22%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 22%),
+    0 18px 44px rgb(0 0 0 / 12%);
+  backdrop-filter: blur(6px);
+}
+
+.jigsaw-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  overflow: visible;
+}
+
+.jigsaw-slot:disabled {
+  cursor: not-allowed;
+}
+
+.jigsaw-piece-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 10px 20px rgb(0 0 0 / 16%));
+}
+
+.jigsaw-piece-outline,
+.jigsaw-piece-fill {
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.jigsaw-piece-outline {
+  fill: rgb(255 255 255 / 16%);
+  stroke: rgb(255 255 255 / 74%);
+  stroke-width: 3;
+  stroke-dasharray: 7 7;
+}
+
+.jigsaw-piece-fill {
+  fill: url("#unused");
+  stroke: rgb(255 255 255 / 86%);
+  stroke-width: 2.6;
+}
+
+.jigsaw-slot.is-filled .jigsaw-piece-fill {
+  fill: color-mix(in srgb, var(--amber) 72%, white);
+}
+
+.jigsaw-slot:nth-child(2n).is-filled .jigsaw-piece-fill {
+  fill: color-mix(in srgb, var(--teal) 62%, white);
+}
+
+.jigsaw-slot:nth-child(3n).is-filled .jigsaw-piece-fill {
+  fill: color-mix(in srgb, var(--coral) 64%, white);
+}
+
+.jigsaw-slot:nth-child(4n).is-filled .jigsaw-piece-fill {
+  fill: color-mix(in srgb, var(--violet) 66%, white);
+}
+
+.jigsaw-slot.is-empty {
+  opacity: 0.7;
+}
+
+.jigsaw-slot.is-available {
+  animation: jigsawSlotPulse 2.4s ease-in-out infinite;
+}
+
+.jigsaw-slot.is-available .jigsaw-piece-outline {
+  fill: color-mix(in srgb, var(--amber) 18%, transparent);
+  stroke: color-mix(in srgb, var(--amber) 82%, white);
+  stroke-dasharray: 0;
+}
+
+.jigsaw-slot.is-filled {
+  animation: jigsawDropIn 620ms cubic-bezier(0.17, 0.84, 0.32, 1.22) both;
+}
+
+.jigsaw-slot.is-filled::after {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 68%), transparent 58%);
+  opacity: 0;
+  animation: jigsawSpark 700ms ease-out 160ms both;
+  pointer-events: none;
+}
+
+.jigsaw-slot:hover:not(:disabled) .jigsaw-piece-shape {
+  transform: translateY(-0.15rem) scale(1.025);
+}
+
+.jigsaw-piece-number {
+  position: absolute;
+  inset-block-start: 10%;
+  inset-inline-end: 13%;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 78%);
+  color: #20140b;
+  font-weight: 900;
+  font-size: 0.95rem;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 12%);
+}
+
+.jigsaw-piece-lock {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 64%);
+}
+
+.jigsaw-piece-lock svg {
+  width: 2.15rem;
+  height: 2.15rem;
+}
+
+.jigsaw-piece-reward {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  max-width: 76%;
+  min-height: 2.5rem;
+  color: #20140b;
+  font-size: clamp(1.35rem, 3.8vw, 2.6rem);
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 2px 16px rgb(255 255 255 / 70%);
+  unicode-bidi: isolate;
+}
+
+.jigsaw-piece-check {
+  position: absolute;
+  inset-block-end: 12%;
+  inset-inline-start: 14%;
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--green) 82%, white);
+  color: white;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 16%);
+}
+
+.jigsaw-piece-check svg {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .challenge-card strong,
@@ -2337,6 +2522,50 @@ h1 {
   }
 }
 
+@keyframes jigsawDropIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-1.4rem) rotate(-4deg) scale(0.86);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translateY(0.12rem) rotate(1deg) scale(1.05);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes jigsawSpark {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes jigsawSlotPulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-0.2rem);
+  }
+}
+
 @media (max-width: 820px) {
   .challenge-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2371,6 +2600,16 @@ h1 {
 
   .puzzle-piece:nth-child(odd) {
     border-inline-start: 0;
+  }
+
+  .jigsaw-stage {
+    min-height: 22rem;
+  }
+
+  .jigsaw-board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+    width: min(100%, 31rem);
   }
 }
 
@@ -2464,6 +2703,31 @@ h1 {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.1rem;
+  }
+
+  .jigsaw-stage {
+    min-height: 21rem;
+    padding: 0.75rem;
+  }
+
+  .jigsaw-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    padding: 0.5rem;
+  }
+
+  .jigsaw-piece-number {
+    width: 1.65rem;
+    font-size: 0.82rem;
+  }
+
+  .jigsaw-piece-lock {
+    width: 2.3rem;
+  }
+
+  .jigsaw-piece-lock svg {
+    width: 1.8rem;
+    height: 1.8rem;
   }
 
   .challenge-grid,

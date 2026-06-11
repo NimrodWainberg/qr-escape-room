@@ -921,7 +921,7 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
         <p>{getEditableText(roomConfig.puzzleSubtitle, "כל קוד נכון חושף חלק נוסף בתמונה.")}</p>
       </div>
 
-      <div className="puzzle-stage" style={{ "--piece-count": challenges.length }}>
+      <div className="puzzle-stage jigsaw-stage">
         <div className="puzzle-scene" aria-hidden="true">
           <span className="puzzle-sun" />
           <span className="puzzle-cloud puzzle-cloud-a" />
@@ -931,15 +931,15 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
           <span className="puzzle-landmark" />
         </div>
 
-        <div className="puzzle-pieces">
+        <div className="jigsaw-board" style={{ "--piece-count": challenges.length }}>
           {challenges.map((challenge, index) => {
             const solvedChallenge = isChallengeSolved(challenge, solved);
             const unlockedChallenge = isChallengeUnlocked(challenges, challenge, solved);
-            const state = solvedChallenge ? "is-revealed" : unlockedChallenge ? "is-available" : "is-hidden";
+            const state = solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
 
             return (
               <button
-                className={`puzzle-piece ${state}`}
+                className={`jigsaw-slot ${state}`}
                 key={challenge.id}
                 type="button"
                 style={{ "--piece-index": index }}
@@ -949,11 +949,20 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
                   solvedChallenge ? "נפתר" : unlockedChallenge ? "פתוח" : "נעול"
                 }`}
               >
-                <span className="puzzle-piece-number">{challenge.id}</span>
-                <span className="puzzle-piece-lock">
-                  {solvedChallenge ? <Check aria-hidden="true" /> : <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />}
-                </span>
-                <span className="puzzle-piece-reward">{solvedChallenge ? challenge.reward : ""}</span>
+                <JigsawPieceSvg filled={solvedChallenge} />
+                <span className="jigsaw-piece-number">{challenge.id}</span>
+                {solvedChallenge ? (
+                  <>
+                    <span className="jigsaw-piece-reward">{challenge.reward}</span>
+                    <span className="jigsaw-piece-check">
+                      <Check aria-hidden="true" />
+                    </span>
+                  </>
+                ) : (
+                  <span className="jigsaw-piece-lock">
+                    <AnimatedLock state={unlockedChallenge ? "open" : "closed"} compact />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -971,6 +980,17 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
         <span>{finalUnlocked ? "התמונה נפתחה במלואה" : "חלקים נחשפו"}</span>
       </div>
     </section>
+  );
+}
+
+function JigsawPieceSvg({ filled }) {
+  return (
+    <svg className="jigsaw-piece-shape" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+      <path
+        className={filled ? "jigsaw-piece-fill" : "jigsaw-piece-outline"}
+        d="M44 8C57 8 64 18 61 31H100V51C90 47 80 53 80 63C80 73 90 79 100 75V112H61C64 99 57 90 44 90C31 90 24 99 27 112H8V75C18 79 28 73 28 63C28 53 18 47 8 51V31H44C41 18 31 8 44 8Z"
+      />
+    </svg>
   );
 }
 
