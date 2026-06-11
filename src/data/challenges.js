@@ -19,6 +19,7 @@ export const roomConfig = {
   puzzleTitle: "מפת הבריחה",
   puzzleSubtitle: "כל קוד נכון חושף חלק נוסף בתמונה.",
   puzzleTheme: "vacation",
+  puzzleImageUrl: "",
 };
 
 export const challenges = [
@@ -27,6 +28,7 @@ export const challenges = [
     path: "/q/1",
     title: "קוד 1",
     question: "",
+    questionImageUrl: "",
     answerType: "open",
     answerInputMode: "auto",
     answerFields: [],
@@ -43,6 +45,7 @@ export const challenges = [
     path: "/q/2",
     title: "קוד 2",
     question: "",
+    questionImageUrl: "",
     answerType: "open",
     answerInputMode: "auto",
     answerFields: [],
@@ -59,6 +62,7 @@ export const challenges = [
     path: "/q/3",
     title: "קוד 3",
     question: "",
+    questionImageUrl: "",
     answerType: "open",
     answerInputMode: "auto",
     answerFields: [],
@@ -75,6 +79,7 @@ export const challenges = [
     path: "/q/4",
     title: "קוד 4",
     question: "",
+    questionImageUrl: "",
     answerType: "open",
     answerInputMode: "auto",
     answerFields: [],
@@ -91,6 +96,7 @@ export const challenges = [
     path: "/q/5",
     title: "קוד 5",
     question: "",
+    questionImageUrl: "",
     answerType: "open",
     answerInputMode: "auto",
     answerFields: [],

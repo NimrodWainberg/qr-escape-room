@@ -148,6 +148,20 @@ function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו את ה�
   return getEditableText(challenge.answerLabel, getEditableText(roomConfig.defaultAnswerLabel, fallback));
 }
 
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Invalid image file"));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read image"));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function postJson(url, body, token) {
   const response = await fetch(url, {
     method: "POST",
@@ -939,7 +953,13 @@ function PuzzleProgress({ challenges, roomConfig, solved, finalUnlocked, onNavig
         </div>
 
         <div className="jigsaw-board" style={{ "--piece-count": slotCount }}>
-          <JigsawBoardPicture puzzleSlots={puzzleSlots} challenges={challenges} solved={solved} />
+          <JigsawBoardPicture
+            puzzleSlots={puzzleSlots}
+            challenges={challenges}
+            solved={solved}
+            theme={theme}
+            imageUrl={roomConfig.puzzleImageUrl}
+          />
 
           {puzzleSlots.map((challenge, index) => {
             const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
@@ -1096,7 +1116,80 @@ function createJigsawPath(index) {
   ].join(" ");
 }
 
-function JigsawBoardPicture({ puzzleSlots, challenges, solved }) {
+function PuzzlePictureArt({ theme, imageUrl, shadeId }) {
+  if (imageUrl) {
+    return (
+      <g className="jigsaw-full-picture">
+        <image href={imageUrl} x="0" y="0" width="300" height="200" preserveAspectRatio="xMidYMid slice" />
+        <path d="M0 0H300V200H0Z" fill={`url(#${shadeId})`} />
+      </g>
+    );
+  }
+
+  if (theme === "space") {
+    return (
+      <g className="jigsaw-full-picture">
+        <rect width="300" height="200" fill="#19254a" />
+        <circle cx="238" cy="42" r="30" fill="#ffe38a" />
+        <circle cx="96" cy="76" r="44" fill="#7a63ff" opacity="0.72" />
+        <circle cx="104" cy="68" r="18" fill="#bdadff" opacity="0.72" />
+        <path d="M0 142C52 122 94 130 139 151C190 175 238 143 300 124V200H0Z" fill="#178f9a" />
+        <path d="M0 162C61 143 104 151 154 174C204 196 251 169 300 154V200H0Z" fill="#5c4ec7" opacity="0.84" />
+        <path d="M46 42L69 54L48 66L25 54Z" fill="#ff8b4f" />
+        <path d="M69 54L81 86L58 74L48 66Z" fill="#f25f5c" />
+        <path d="M25 54L14 86L37 74L48 66Z" fill="#ffd166" />
+        <path d="M176 68C202 55 230 56 260 70" stroke="#8edff5" strokeWidth="7" strokeLinecap="round" fill="none" opacity="0.72" />
+        <path d="M0 0H300V200H0Z" fill={`url(#${shadeId})`} />
+      </g>
+    );
+  }
+
+  if (theme === "treasure") {
+    return (
+      <g className="jigsaw-full-picture">
+        <rect width="300" height="200" fill="#d9ad63" />
+        <path d="M0 0H300V200H0Z" fill="#f3d995" opacity="0.74" />
+        <path d="M20 32C74 53 112 47 158 26C209 2 251 15 300 45V92C244 70 206 72 162 95C112 121 65 107 20 86Z" fill="#bd7d3c" opacity="0.42" />
+        <path d="M0 136C54 116 97 125 140 143C196 168 235 139 300 119V200H0Z" fill="#4aa17c" opacity="0.74" />
+        <path d="M74 58C107 56 133 70 151 101C171 134 199 147 236 142" stroke="#6f4b37" strokeWidth="8" strokeLinecap="round" strokeDasharray="1 18" fill="none" />
+        <path d="M214 84L238 68L261 84L254 119H221Z" fill="#8a562f" />
+        <path d="M207 86L238 54L269 86Z" fill="#f25f5c" />
+        <path d="M48 126L70 101L93 126L84 154H57Z" fill="#ffd166" />
+        <path d="M61 126H80V154H61Z" fill="#6f4b37" opacity="0.72" />
+        <path d="M0 0H300V200H0Z" fill={`url(#${shadeId})`} />
+      </g>
+    );
+  }
+
+  return (
+    <g className="jigsaw-full-picture">
+      <rect width="300" height="200" fill="#55c7f3" />
+      <path d="M0 0H300V118C246 104 216 124 174 112C124 98 94 80 42 105C22 115 10 118 0 119Z" fill="#8edff5" />
+      <path d="M180 0H300V92C265 75 234 77 204 91C191 70 184 39 180 0Z" fill="#ffd166" opacity="0.88" />
+      <path d="M0 20C45 2 92 12 129 38C160 60 195 62 230 43C257 28 279 26 300 34V75C257 62 230 68 197 88C152 115 112 86 76 61C45 39 19 37 0 46Z" fill="#ff8b4f" opacity="0.62" />
+      <circle cx="246" cy="41" r="28" fill="#ffd166" />
+      <circle cx="226" cy="58" r="48" fill="#ffd166" opacity="0.4" />
+      <path d="M0 80C54 58 93 73 136 96C188 124 225 95 300 78V147C241 160 198 181 144 154C93 129 46 121 0 144Z" fill="#f7c970" opacity="0.72" />
+      <path d="M0 96C63 81 101 98 144 119C200 147 241 116 300 102V154C247 173 200 195 137 164C83 138 42 130 0 151Z" fill="#38b88f" opacity="0.8" />
+      <path d="M22 34C44 23 66 24 84 38M184 36C204 24 226 24 247 38" stroke="#fff7d0" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.72" />
+      <path d="M0 126C37 106 68 116 98 133C139 156 169 133 205 124C241 115 270 133 300 118V200H0Z" fill="#f5d484" />
+      <path d="M0 151C53 128 98 142 142 159C201 181 247 150 300 137V200H0Z" fill="#2db6a3" />
+      <path d="M0 169C58 151 100 160 152 177C201 193 244 172 300 157V200H0Z" fill="#177f88" opacity="0.92" />
+      <path d="M140 80C132 98 126 121 115 143" stroke="#81522f" strokeWidth="8" strokeLinecap="round" fill="none" />
+      <path d="M142 77C116 80 96 93 83 113C110 109 134 100 142 77Z" fill="#24956f" />
+      <path d="M145 74C166 76 188 86 205 105C179 106 155 96 145 74Z" fill="#2ba778" />
+      <path d="M143 75C132 55 113 43 87 37C102 61 122 75 143 75Z" fill="#35b982" />
+      <path d="M145 76C157 56 176 43 203 39C189 62 167 76 145 76Z" fill="#1f8f68" />
+      <path d="M35 66L54 53L74 66L66 90H43Z" fill="#ff8b4f" />
+      <path d="M47 66H62V90H47Z" fill="#6f4b37" opacity="0.78" />
+      <path d="M32 67L54 43L77 67Z" fill="#f25f5c" />
+      <path d="M213 139C229 126 248 126 264 139" stroke="#fff7d0" strokeWidth="7" strokeLinecap="round" fill="none" opacity="0.82" />
+      <path d="M0 0H300V200H0Z" fill={`url(#${shadeId})`} />
+    </g>
+  );
+}
+
+function JigsawBoardPicture({ puzzleSlots, challenges, solved, theme, imageUrl }) {
   const shadeId = "jigsaw-board-picture-shade";
 
   return (
@@ -1109,30 +1202,7 @@ function JigsawBoardPicture({ puzzleSlots, challenges, solved }) {
         </linearGradient>
       </defs>
 
-      <g className="jigsaw-full-picture">
-        <rect width="300" height="200" fill="#55c7f3" />
-        <path d="M0 0H300V118C246 104 216 124 174 112C124 98 94 80 42 105C22 115 10 118 0 119Z" fill="#8edff5" />
-        <path d="M180 0H300V92C265 75 234 77 204 91C191 70 184 39 180 0Z" fill="#ffd166" opacity="0.88" />
-        <path d="M0 20C45 2 92 12 129 38C160 60 195 62 230 43C257 28 279 26 300 34V75C257 62 230 68 197 88C152 115 112 86 76 61C45 39 19 37 0 46Z" fill="#ff8b4f" opacity="0.62" />
-        <circle cx="246" cy="41" r="28" fill="#ffd166" />
-        <circle cx="226" cy="58" r="48" fill="#ffd166" opacity="0.4" />
-        <path d="M0 80C54 58 93 73 136 96C188 124 225 95 300 78V147C241 160 198 181 144 154C93 129 46 121 0 144Z" fill="#f7c970" opacity="0.72" />
-        <path d="M0 96C63 81 101 98 144 119C200 147 241 116 300 102V154C247 173 200 195 137 164C83 138 42 130 0 151Z" fill="#38b88f" opacity="0.8" />
-        <path d="M22 34C44 23 66 24 84 38M184 36C204 24 226 24 247 38" stroke="#fff7d0" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.72" />
-        <path d="M0 126C37 106 68 116 98 133C139 156 169 133 205 124C241 115 270 133 300 118V200H0Z" fill="#f5d484" />
-        <path d="M0 151C53 128 98 142 142 159C201 181 247 150 300 137V200H0Z" fill="#2db6a3" />
-        <path d="M0 169C58 151 100 160 152 177C201 193 244 172 300 157V200H0Z" fill="#177f88" opacity="0.92" />
-        <path d="M140 80C132 98 126 121 115 143" stroke="#81522f" strokeWidth="8" strokeLinecap="round" fill="none" />
-        <path d="M142 77C116 80 96 93 83 113C110 109 134 100 142 77Z" fill="#24956f" />
-        <path d="M145 74C166 76 188 86 205 105C179 106 155 96 145 74Z" fill="#2ba778" />
-        <path d="M143 75C132 55 113 43 87 37C102 61 122 75 143 75Z" fill="#35b982" />
-        <path d="M145 76C157 56 176 43 203 39C189 62 167 76 145 76Z" fill="#1f8f68" />
-        <path d="M35 66L54 53L74 66L66 90H43Z" fill="#ff8b4f" />
-        <path d="M47 66H62V90H47Z" fill="#6f4b37" opacity="0.78" />
-        <path d="M32 67L54 43L77 67Z" fill="#f25f5c" />
-        <path d="M213 139C229 126 248 126 264 139" stroke="#fff7d0" strokeWidth="7" strokeLinecap="round" fill="none" opacity="0.82" />
-        <path d="M0 0H300V200H0Z" fill={`url(#${shadeId})`} />
-      </g>
+      <PuzzlePictureArt theme={theme} imageUrl={imageUrl} shadeId={shadeId} />
 
       {puzzleSlots.map((challenge, index) => {
         const visualIndex = getRtlJigsawIndex(index);
@@ -1144,7 +1214,7 @@ function JigsawBoardPicture({ puzzleSlots, challenges, solved }) {
           <path
             className={`jigsaw-piece-fill-layer ${state}`}
             d={createJigsawPath(visualIndex)}
-            fill={state === "is-filled" ? "transparent" : "#1b94df"}
+            fill={state === "is-filled" || state === "is-mystery" ? "transparent" : "#77818a"}
             key={challenge?.id ?? `mystery-picture-${index}`}
           />
         );
@@ -1540,6 +1610,11 @@ function ChallengePage({
       </div>
 
       <div className="question-box">
+        {challenge.questionImageUrl && (
+          <figure className="question-image">
+            <img src={challenge.questionImageUrl} alt="" />
+          </figure>
+        )}
         {challenge.question ? (
           <p>{challenge.question}</p>
         ) : (
@@ -1856,6 +1931,7 @@ function createBlankChallenge(challenges) {
     path: `/q/${id}`,
     title: `קוד ${id}`,
     question: "",
+    questionImageUrl: "",
     answerType: "open",
     answerInputMode: "auto",
     answer: "",
@@ -2850,6 +2926,12 @@ function AdminGameForm({
             placeholder="כל קוד נכון חושף חלק נוסף בתמונה."
           />
         </label>
+        <AdminImageField
+          label="תמונת פאזל מותאמת"
+          value={config.roomConfig.puzzleImageUrl ?? ""}
+          onChange={(value) => onUpdateRoomConfig("puzzleImageUrl", value)}
+          help="אם מעלים תמונה, היא תחליף את ציור ברירת המחדל ותישמר עם המשחק הזה."
+        />
       </fieldset>
 
       <fieldset className="admin-section">
@@ -2936,6 +3018,12 @@ function AdminGameForm({
                   placeholder="אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR"
                 />
               </label>
+              <AdminImageField
+                label="תמונה לשאלה"
+                value={challenge.questionImageUrl ?? ""}
+                onChange={(value) => onUpdateChallenge(index, "questionImageUrl", value)}
+                help="אפשר לשלב תמונה עם טקסט השאלה. אם אין צורך, השאירו ריק."
+              />
               <div className="admin-inline-fields">
                 <label>
                   סוג תשובה
@@ -3135,6 +3223,63 @@ function AdminGameForm({
         {message && <span className="admin-message">{message}</span>}
       </div>
     </form>
+  );
+}
+
+function AdminImageField({ label, value, onChange, help }) {
+  const [uploadStatus, setUploadStatus] = useState("");
+
+  async function handleFileChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setUploadStatus("טוען תמונה...");
+
+    try {
+      const dataUrl = await readImageFile(file);
+      onChange(dataUrl);
+      setUploadStatus("התמונה נטענה. צריך לשמור את המשחק.");
+    } catch {
+      setUploadStatus("לא הצלחנו לקרוא את התמונה. נסו קובץ תמונה אחר.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  return (
+    <div className="admin-image-field">
+      <label>
+        {label}
+        <input
+          className="admin-input"
+          value={value ?? ""}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="https://... או העלאת תמונה"
+          dir="ltr"
+        />
+      </label>
+      <div className="admin-image-actions">
+        <label className="ghost-button file-upload-button">
+          העלאת תמונה
+          <input type="file" accept="image/*" onChange={handleFileChange} />
+        </label>
+        {value && (
+          <button className="ghost-button" type="button" onClick={() => onChange("")}>
+            הסרת תמונה
+          </button>
+        )}
+      </div>
+      {value && (
+        <div className="admin-image-preview">
+          <img src={value} alt="" />
+        </div>
+      )}
+      {help && <p className="admin-help-text">{help}</p>}
+      {uploadStatus && <p className="admin-help-text">{uploadStatus}</p>}
+    </div>
   );
 }
 

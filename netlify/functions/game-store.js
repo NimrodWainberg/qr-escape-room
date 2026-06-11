@@ -41,6 +41,7 @@ const defaultGameConfig = {
     puzzleTitle: "מפת הבריחה",
     puzzleSubtitle: "כל קוד נכון חושף חלק נוסף בתמונה.",
     puzzleTheme: "vacation",
+    puzzleImageUrl: "",
   },
   challenges: [
     { id: 1, path: "/q/1", title: "קוד 1", question: "", answer: "1", reward: "חו" },
@@ -218,6 +219,7 @@ function sanitizeChallenge(challenge, index) {
     path: cleanString(challenge?.path, `/q/${id}`) || `/q/${id}`,
     title: cleanString(challenge?.title, `קוד ${id}`) || `קוד ${id}`,
     question: cleanString(challenge?.question),
+    questionImageUrl: cleanString(challenge?.questionImageUrl),
     answerType,
     answerInputMode: cleanAnswerInputMode(challenge?.answerInputMode),
     answerLabel: cleanString(challenge?.answerLabel),
@@ -294,6 +296,7 @@ export function sanitizeGameConfig(config) {
       puzzleTheme: ["vacation", "treasure", "space"].includes(sourceRoomConfig.puzzleTheme)
         ? sourceRoomConfig.puzzleTheme
         : defaultGameConfig.roomConfig.puzzleTheme,
+      puzzleImageUrl: cleanString(sourceRoomConfig.puzzleImageUrl, defaultGameConfig.roomConfig.puzzleImageUrl),
     },
     challenges: sourceChallenges.map(sanitizeChallenge),
   };
@@ -322,6 +325,7 @@ export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
       puzzleTitle: safeConfig.roomConfig.puzzleTitle,
       puzzleSubtitle: safeConfig.roomConfig.puzzleSubtitle,
       puzzleTheme: safeConfig.roomConfig.puzzleTheme,
+      puzzleImageUrl: safeConfig.roomConfig.puzzleImageUrl,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
       showEmailLogin: safeGlobalSettings.showEmailLogin,
       defaultAnswerLabel: safeConfig.roomConfig.defaultAnswerLabel,
