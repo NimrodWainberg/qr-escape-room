@@ -2263,7 +2263,6 @@ function AdminPage({
         {
           id: newGameId || createRandomGameSlug(),
           title: newGameTitle,
-          sourceGameId: gameId,
         },
         token,
       );

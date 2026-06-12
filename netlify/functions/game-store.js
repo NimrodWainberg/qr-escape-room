@@ -56,6 +56,32 @@ const defaultGlobalSettings = {
   showEmailLogin: true,
 };
 
+function createBlankGameConfig(title = "") {
+  return {
+    roomConfig: {
+      ...defaultGameConfig.roomConfig,
+      title: cleanString(title, defaultGameConfig.roomConfig.title) || defaultGameConfig.roomConfig.title,
+      finalCode: "",
+      gamePassword: "",
+      puzzleMode: "off",
+      puzzleImageUrl: "",
+    },
+    challenges: defaultGameConfig.challenges.map((challenge) => ({
+      ...challenge,
+      question: "",
+      questionImageUrl: "",
+      answer: "",
+      answerFields: [],
+      choiceOptions: [],
+      reward: "",
+      points: "",
+      wrongAnswerPenalty: "",
+      successMessage: "",
+      errorMessage: "",
+    })),
+  };
+}
+
 export function initBlobContext(event) {
   connectLambda(event);
 }
@@ -438,7 +464,7 @@ export async function updateGameSummary(gameId, config) {
   return nextGame;
 }
 
-export async function createGame({ id, title, sourceGameId = DEFAULT_GAME_ID } = {}) {
+export async function createGame({ id, title, sourceGameId = null } = {}) {
   const cleanId = normalizeGameId(id);
   const cleanTitleId = normalizeGameId(title);
   const gameId = cleanId !== DEFAULT_GAME_ID ? cleanId : cleanTitleId !== DEFAULT_GAME_ID ? cleanTitleId : `game-${crypto.randomBytes(3).toString("hex")}`;
@@ -448,7 +474,7 @@ export async function createGame({ id, title, sourceGameId = DEFAULT_GAME_ID } =
     throw new Error("game_exists");
   }
 
-  const sourceConfig = await getGameConfig(sourceGameId);
+  const sourceConfig = sourceGameId ? await getGameConfig(sourceGameId) : createBlankGameConfig(title);
   const nextConfig = sanitizeGameConfig({
     ...sourceConfig,
     roomConfig: {
