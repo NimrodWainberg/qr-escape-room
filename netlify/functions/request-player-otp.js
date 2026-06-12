@@ -38,7 +38,7 @@ export const handler = async (event) => {
       return jsonResponse(400, { error: message });
     }
 
-    if (message === "email_failed") {
+    if (["email_failed", "email_api_key_invalid", "email_sender_invalid"].includes(message)) {
       return jsonResponse(502, { error: message });
     }
 

@@ -1392,6 +1392,16 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
         return;
       }
 
+      if (error.message === "email_api_key_invalid") {
+        setMessage("מפתח Resend לא תקין. צריך להחליף את RESEND_API_KEY ב-Netlify למפתח אמיתי שמתחיל בדרך כלל ב-re_");
+        return;
+      }
+
+      if (error.message === "email_sender_invalid") {
+        setMessage("כתובת השולח לא מאומתת ב-Resend. הגדירו OTP_FROM_EMAIL לכתובת/דומיין מאומתים.");
+        return;
+      }
+
       if (error.status === 502 || error.message === "email_failed") {
         setMessage("ספק האימייל דחה את השליחה. בדקו שהשולח מאומת ב-Resend או כבו כניסה באימייל בהגדרות.");
         return;

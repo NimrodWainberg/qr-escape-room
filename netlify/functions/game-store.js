@@ -650,12 +650,13 @@ async function sendOtpEmail({ email, name, code }) {
     });
 
     if (!response.ok) {
+      const body = await response.text().catch(() => "");
       console.error("otp_email_failed", {
         provider: provider.name,
         status: response.status,
-        body: await response.text().catch(() => ""),
+        body,
       });
-      throw new Error("email_failed");
+      throw new Error(getEmailFailureCode(body));
     }
 
     return { sent: true, configured: true, provider: provider.name };
@@ -679,15 +680,30 @@ async function sendOtpEmail({ email, name, code }) {
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => "");
     console.error("otp_email_failed", {
       provider: provider.name,
       status: response.status,
-      body: await response.text().catch(() => ""),
+      body,
     });
-    throw new Error("email_failed");
+    throw new Error(getEmailFailureCode(body));
   }
 
   return { sent: true, configured: true, provider: provider.name };
+}
+
+function getEmailFailureCode(body = "") {
+  const message = String(body).toLowerCase();
+
+  if (message.includes("api key") && message.includes("invalid")) {
+    return "email_api_key_invalid";
+  }
+
+  if (message.includes("domain") || message.includes("from") || message.includes("sender")) {
+    return "email_sender_invalid";
+  }
+
+  return "email_failed";
 }
 
 function createSignedToken(payload, ttlMs) {
