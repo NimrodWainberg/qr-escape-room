@@ -307,6 +307,8 @@ export default function App() {
   const [configStatus, setConfigStatus] = useState("loading");
   const [recentlySolvedId, setRecentlySolvedId] = useState(null);
   const { roomConfig, challenges } = gameConfig;
+  const isAdminRoute = path === "/admin";
+  const isGameRoute = !isLobby && !isAdminRoute;
 
   useEffect(() => {
     const onPopState = () => setRouteInfo(getRouteInfo(window.location.pathname));
@@ -347,11 +349,17 @@ export default function App() {
   }, [gameId]);
 
   useEffect(() => {
+    if (!isGameRoute) {
+      setLeaderboard([]);
+      setShowLeaderboardModal(false);
+      return undefined;
+    }
+
     loadLeaderboard();
 
     const intervalId = window.setInterval(loadLeaderboard, 10000);
     return () => window.clearInterval(intervalId);
-  }, [gameId]);
+  }, [gameId, isGameRoute]);
 
   useEffect(() => {
     loadPublicGames();
@@ -365,7 +373,7 @@ export default function App() {
   }, [gameId]);
 
   useEffect(() => {
-    if (path === "/admin" || isLobby || playerSession || !playerProfile) {
+    if (!isGameRoute || playerSession || !playerProfile) {
       return;
     }
 
@@ -395,16 +403,16 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [gameId, isLobby, path, playerProfile, playerSession]);
+  }, [gameId, isGameRoute, playerProfile, playerSession]);
 
   useEffect(() => {
-    if (path === "/admin" || isLobby) {
+    if (!isGameRoute) {
       setShowLoginModal(false);
       return;
     }
 
     setShowLoginModal(!playerSession && !playerProfile);
-  }, [gameId, isLobby, path, playerProfile, playerSession]);
+  }, [gameId, isGameRoute, playerProfile, playerSession]);
 
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
@@ -530,11 +538,11 @@ export default function App() {
       <header className="topbar">
         <button className="brand-button" type="button" onClick={navigateLobby}>
           <QrCode aria-hidden="true" />
-          <span>{roomConfig.title}</span>
+          <span>{isLobby ? "כל המשחקים" : roomConfig.title}</span>
         </button>
 
         <nav className="nav-actions" aria-label="ניווט">
-          {playerSession?.player?.name && (
+          {isGameRoute && playerSession?.player?.name && (
             <span className="player-pill">
               <span className="player-pill-name">שלום {playerSession.player.name}</span>
               <button type="button" onClick={logoutPlayer} aria-label="יציאה מהמשחק" title="יציאה מהמשחק">
@@ -542,7 +550,7 @@ export default function App() {
               </button>
             </span>
           )}
-          {!playerSession && (
+          {isGameRoute && !playerSession && (
             <button
               className="icon-button"
               type="button"
@@ -553,33 +561,28 @@ export default function App() {
               <UserRound aria-hidden="true" />
             </button>
           )}
-          <button
-            className="icon-button"
-            type="button"
-            onClick={() => setShowLeaderboardModal(true)}
-            aria-label="לוח תוצאות"
-            title="לוח תוצאות"
-          >
-            <BarChart3 aria-hidden="true" />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            onClick={navigateLobby}
-            aria-label="עמוד הבית"
-            title="עמוד הבית"
-          >
-            <Home aria-hidden="true" />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            onClick={() => navigate("/final")}
-            aria-label="לקוד הסופי"
-            title="לקוד הסופי"
-          >
-            <Trophy aria-hidden="true" />
-          </button>
+          {isGameRoute && (
+            <>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setShowLeaderboardModal(true)}
+                aria-label="לוח תוצאות"
+                title="לוח תוצאות"
+              >
+                <BarChart3 aria-hidden="true" />
+              </button>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => navigate("/final")}
+                aria-label="לקוד הסופי"
+                title="לקוד הסופי"
+              >
+                <Trophy aria-hidden="true" />
+              </button>
+            </>
+          )}
           <button
             className="icon-button"
             type="button"
@@ -624,7 +627,7 @@ export default function App() {
             onNavigateToGame={navigateToGame}
           />
         ) : roomConfig.passwordProtected && !gameUnlocked ? (
-          <GamePasswordGate roomConfig={roomConfig} onUnlock={unlockGame} onBack={() => navigateToGame(DEFAULT_GAME_ID)} />
+          <GamePasswordGate roomConfig={roomConfig} onUnlock={unlockGame} onBack={navigateLobby} />
         ) : activeChallenge ? (
           !playerSession ? (
             <HomePage
