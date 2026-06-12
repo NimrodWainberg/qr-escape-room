@@ -2784,11 +2784,35 @@ function AdminGameForm({
   onUpdateChoiceOption,
   onUpdateRoomConfig,
 }) {
+  const [section, setSection] = useState("main");
   const puzzleEnabled = config.roomConfig.puzzleMode === "reveal";
 
   return (
     <form className="admin-form" onSubmit={onSaveConfig}>
-      <AdminCollapsibleSection title="הגדרות כלליות" meta="שם, טקסט פתיחה, ניקוד ותשובות ברירת מחדל" defaultOpen>
+      <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
+        <button
+          aria-selected={section === "main"}
+          className={section === "main" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setSection("main")}
+        >
+          הגדרות
+        </button>
+        <button
+          aria-selected={section === "levels"}
+          className={section === "levels" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setSection("levels")}
+        >
+          שלבים
+        </button>
+      </div>
+
+      {section === "main" && (
+        <>
+          <AdminCollapsibleSection title="הגדרות כלליות" meta="שם, טקסט פתיחה, ניקוד ותשובות ברירת מחדל" defaultOpen>
         <label>
           שם המשחק
           <input
@@ -2897,9 +2921,9 @@ function AdminGameForm({
             onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)}
           />
         </label>
-      </AdminCollapsibleSection>
+          </AdminCollapsibleSection>
 
-      <AdminCollapsibleSection title="פאזל" meta={puzzleEnabled ? "פעיל במסך הבית" : "כבוי"}>
+          <AdminCollapsibleSection title="פאזל" meta={puzzleEnabled ? "פעיל במסך הבית" : "כבוי"}>
         <label className="switch-setting">
           <span>
             <strong>הצגת פאזל במשחק</strong>
@@ -2958,9 +2982,9 @@ function AdminGameForm({
         ) : (
           <p className="admin-help-text">הפעילו את הפאזל כדי לערוך כותרת, סגנון ותמונה.</p>
         )}
-      </AdminCollapsibleSection>
+          </AdminCollapsibleSection>
 
-      <AdminCollapsibleSection title="מסך סיום" meta="הטקסטים שמופיעים אחרי הקוד הסופי">
+          <AdminCollapsibleSection title="מסך סיום" meta="הטקסטים שמופיעים אחרי הקוד הסופי">
         <label>
           כותרת קטנה
           <input
@@ -2993,9 +3017,12 @@ function AdminGameForm({
             onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)}
           />
         </label>
-      </AdminCollapsibleSection>
+          </AdminCollapsibleSection>
+        </>
+      )}
 
-      <AdminCollapsibleSection title="שלבים" meta={`${config.challenges.length} שלבים`} defaultOpen>
+      {section === "levels" && (
+        <AdminCollapsibleSection title="שלבים" meta={`${config.challenges.length} שלבים`} defaultOpen>
         <div className="admin-section-heading">
           <span>אפשר להוסיף או להסיר שלבים. שלב חדש מקבל כתובת חדשה אוטומטית.</span>
           <button className="ghost-button" type="button" onClick={onAddChallenge}>
@@ -3236,7 +3263,8 @@ function AdminGameForm({
             </AdminCollapsibleSection>
           ))}
         </div>
-      </AdminCollapsibleSection>
+        </AdminCollapsibleSection>
+      )}
 
       <div className="admin-actions">
         <button className="primary-button" type="submit" disabled={status === "saving"}>
