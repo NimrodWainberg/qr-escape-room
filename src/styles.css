@@ -2113,8 +2113,6 @@ h1 {
   display: grid;
   gap: 0.9rem;
   padding: 1rem;
-  content-visibility: auto;
-  contain-intrinsic-block-size: 34rem;
 }
 
 .admin-challenge-collapse {
