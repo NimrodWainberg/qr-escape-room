@@ -2045,6 +2045,88 @@ h1 {
   font-weight: 900;
 }
 
+.admin-collapse {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
+}
+
+.admin-collapse-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  min-height: 4rem;
+  padding-block: 0.85rem;
+  padding-inline: 1rem;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.admin-collapse-summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-collapse-summary span {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.admin-collapse-summary strong {
+  font-size: 1.04rem;
+  font-weight: 900;
+}
+
+.admin-collapse-summary small {
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: auto;
+  unicode-bidi: isolate;
+}
+
+.admin-collapse-summary svg {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.admin-collapse[open] > .admin-collapse-summary {
+  border-block-end: 1px solid var(--line);
+  background: color-mix(in srgb, var(--teal) 7%, transparent);
+}
+
+.admin-collapse[open] > .admin-collapse-summary svg {
+  transform: rotate(180deg);
+}
+
+.admin-collapse-body {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  content-visibility: auto;
+  contain-intrinsic-block-size: 34rem;
+}
+
+.admin-challenge-collapse {
+  background: var(--surface-strong);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--teal) 44%, var(--line));
+}
+
+.admin-challenge-collapse[open] {
+  border-style: solid;
+}
+
 .admin-section-heading,
 .admin-challenge-heading {
   display: flex;

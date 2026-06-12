@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Check,
+  ChevronDown,
   LockKeyhole,
   Home,
   LoaderCircle,
@@ -2749,6 +2750,21 @@ function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate 
   );
 }
 
+function AdminCollapsibleSection({ title, meta, defaultOpen = false, children, className = "" }) {
+  return (
+    <details className={`admin-collapse ${className}`} open={defaultOpen}>
+      <summary className="admin-collapse-summary">
+        <span>
+          <strong>{title}</strong>
+          {meta && <small>{meta}</small>}
+        </span>
+        <ChevronDown aria-hidden="true" />
+      </summary>
+      <div className="admin-collapse-body">{children}</div>
+    </details>
+  );
+}
+
 function AdminGameForm({
   config,
   message,
@@ -2765,23 +2781,11 @@ function AdminGameForm({
   onUpdateChoiceOption,
   onUpdateRoomConfig,
 }) {
-  const [section, setSection] = useState("main");
+  const puzzleEnabled = config.roomConfig.puzzleMode === "reveal";
 
   return (
     <form className="admin-form" onSubmit={onSaveConfig}>
-      <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
-        <button className={section === "main" ? "is-active" : ""} type="button" onClick={() => setSection("main")}>
-          הגדרות
-        </button>
-        <button className={section === "levels" ? "is-active" : ""} type="button" onClick={() => setSection("levels")}>
-          שלבים
-        </button>
-      </div>
-
-      {section === "main" && (
-      <>
-      <fieldset className="admin-section">
-        <legend>הגדרות כלליות</legend>
+      <AdminCollapsibleSection title="הגדרות כלליות" meta="שם, טקסט פתיחה, ניקוד ותשובות ברירת מחדל" defaultOpen>
         <label>
           שם המשחק
           <input
@@ -2890,10 +2894,9 @@ function AdminGameForm({
             onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)}
           />
         </label>
-      </fieldset>
+      </AdminCollapsibleSection>
 
-      <fieldset className="admin-section">
-        <legend>פאזל התקדמות</legend>
+      <AdminCollapsibleSection title="פאזל" meta={puzzleEnabled ? "פעיל במסך הבית" : "כבוי"}>
         <label className="switch-setting">
           <span>
             <strong>הצגת פאזל במשחק</strong>
@@ -2908,48 +2911,53 @@ function AdminGameForm({
             <span className="switch-thumb" />
           </span>
         </label>
-        <div className="admin-inline-fields">
-          <label>
-            כותרת הפאזל
-            <input
-              className="admin-input"
-              value={config.roomConfig.puzzleTitle ?? ""}
-              onChange={(event) => onUpdateRoomConfig("puzzleTitle", event.target.value)}
-              placeholder="מפת הבריחה"
+        {puzzleEnabled ? (
+          <>
+            <div className="admin-inline-fields">
+              <label>
+                כותרת הפאזל
+                <input
+                  className="admin-input"
+                  value={config.roomConfig.puzzleTitle ?? ""}
+                  onChange={(event) => onUpdateRoomConfig("puzzleTitle", event.target.value)}
+                  placeholder="מפת הבריחה"
+                />
+              </label>
+              <label>
+                סגנון
+                <select
+                  className="admin-input"
+                  value={config.roomConfig.puzzleTheme ?? "vacation"}
+                  onChange={(event) => onUpdateRoomConfig("puzzleTheme", event.target.value)}
+                >
+                  <option value="vacation">חופשה</option>
+                  <option value="treasure">אוצר</option>
+                  <option value="space">חלל</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              טקסט קצר מתחת לכותרת
+              <textarea
+                className="admin-textarea compact-textarea"
+                value={config.roomConfig.puzzleSubtitle ?? ""}
+                onChange={(event) => onUpdateRoomConfig("puzzleSubtitle", event.target.value)}
+                placeholder="כל קוד נכון חושף חלק נוסף בתמונה."
+              />
+            </label>
+            <AdminImageField
+              label="תמונת פאזל מותאמת"
+              value={config.roomConfig.puzzleImageUrl ?? ""}
+              onChange={(value) => onUpdateRoomConfig("puzzleImageUrl", value)}
+              help="אם מעלים תמונה, היא תחליף את ציור ברירת המחדל ותישמר עם המשחק הזה."
             />
-          </label>
-          <label>
-            סגנון
-            <select
-              className="admin-input"
-              value={config.roomConfig.puzzleTheme ?? "vacation"}
-              onChange={(event) => onUpdateRoomConfig("puzzleTheme", event.target.value)}
-            >
-              <option value="vacation">חופשה</option>
-              <option value="treasure">אוצר</option>
-              <option value="space">חלל</option>
-            </select>
-          </label>
-        </div>
-        <label>
-          טקסט קצר מתחת לכותרת
-          <textarea
-            className="admin-textarea compact-textarea"
-            value={config.roomConfig.puzzleSubtitle ?? ""}
-            onChange={(event) => onUpdateRoomConfig("puzzleSubtitle", event.target.value)}
-            placeholder="כל קוד נכון חושף חלק נוסף בתמונה."
-          />
-        </label>
-        <AdminImageField
-          label="תמונת פאזל מותאמת"
-          value={config.roomConfig.puzzleImageUrl ?? ""}
-          onChange={(value) => onUpdateRoomConfig("puzzleImageUrl", value)}
-          help="אם מעלים תמונה, היא תחליף את ציור ברירת המחדל ותישמר עם המשחק הזה."
-        />
-      </fieldset>
+          </>
+        ) : (
+          <p className="admin-help-text">הפעילו את הפאזל כדי לערוך כותרת, סגנון ותמונה.</p>
+        )}
+      </AdminCollapsibleSection>
 
-      <fieldset className="admin-section">
-        <legend>מסך סיום</legend>
+      <AdminCollapsibleSection title="מסך סיום" meta="הטקסטים שמופיעים אחרי הקוד הסופי">
         <label>
           כותרת קטנה
           <input
@@ -2982,13 +2990,9 @@ function AdminGameForm({
             onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)}
           />
         </label>
-      </fieldset>
-      </>
-      )}
+      </AdminCollapsibleSection>
 
-      {section === "levels" && (
-      <fieldset className="admin-section">
-        <legend>שלבים</legend>
+      <AdminCollapsibleSection title="שלבים" meta={`${config.challenges.length} שלבים`} defaultOpen>
         <div className="admin-section-heading">
           <span>אפשר להוסיף או להסיר שלבים. שלב חדש מקבל כתובת חדשה אוטומטית.</span>
           <button className="ghost-button" type="button" onClick={onAddChallenge}>
@@ -2998,12 +3002,15 @@ function AdminGameForm({
         </div>
         <div className="admin-challenges">
           {config.challenges.map((challenge, index) => (
-            <div className="admin-challenge" key={challenge.id}>
+            <AdminCollapsibleSection
+              className="admin-challenge-collapse"
+              defaultOpen={index === 0}
+              key={challenge.id}
+              meta={challenge.path}
+              title={`שלב ${challenge.id}`}
+            >
               <div className="admin-challenge-heading">
-                <span>
-                  <strong>שלב {challenge.id}</strong>
-                  <small>{challenge.path}</small>
-                </span>
+                <span>עריכת פרטי השלב</span>
                 <button
                   className="icon-button danger-button"
                   type="button"
@@ -3223,11 +3230,10 @@ function AdminGameForm({
                   />
                 </label>
               </div>
-            </div>
+            </AdminCollapsibleSection>
           ))}
         </div>
-      </fieldset>
-      )}
+      </AdminCollapsibleSection>
 
       <div className="admin-actions">
         <button className="primary-button" type="submit" disabled={status === "saving"}>
