@@ -3214,15 +3214,15 @@ h1 {
 
   .jigsaw-board {
     gap: 0;
-    width: min(100%, 31rem);
+    width: min(100%, 44rem);
   }
 
   .is-puzzle-mode .puzzle-stage {
-    min-height: clamp(15rem, calc(100vh - 15rem), 27rem);
+    min-height: clamp(16rem, 70vw, 31rem);
   }
 
   .is-puzzle-mode .jigsaw-board {
-    width: min(100%, 42rem, calc((100vh - 16rem) * var(--jigsaw-ratio)));
+    width: min(100%, 44rem);
   }
 }
 
@@ -3319,8 +3319,8 @@ h1 {
   }
 
   .jigsaw-stage {
-    min-height: 13.5rem;
-    padding: 0.75rem;
+    min-height: clamp(17rem, 88vw, 28rem);
+    padding: 0.45rem;
   }
 
   .jigsaw-board {
@@ -3331,15 +3331,15 @@ h1 {
   }
 
   .is-puzzle-mode .puzzle-progress {
-    padding: 0.55rem;
+    padding: 0.35rem;
   }
 
   .is-puzzle-mode .puzzle-stage {
-    min-height: clamp(12rem, calc(100svh - 13.5rem), 19rem);
+    min-height: clamp(17rem, 92vw, 29rem);
   }
 
   .is-puzzle-mode .jigsaw-board {
-    width: min(100%, calc((100svh - 14rem) * var(--jigsaw-ratio)));
+    width: min(100%, calc(100vw - 2.35rem));
   }
 
   .jigsaw-piece-number {

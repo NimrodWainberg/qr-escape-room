@@ -358,6 +358,26 @@ function readGameAccess(gameId = DEFAULT_GAME_ID) {
   }
 }
 
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia(query).matches : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(query);
+    const updateMatches = () => setMatches(mediaQuery.matches);
+    updateMatches();
+    mediaQuery.addEventListener("change", updateMatches);
+    return () => mediaQuery.removeEventListener("change", updateMatches);
+  }, [query]);
+
+  return matches;
+}
+
 function formatDuration(milliseconds) {
   if (!Number.isFinite(milliseconds)) {
     return "0:00";
@@ -1063,7 +1083,8 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
   const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
     ? roomConfig.puzzleTheme
     : "vacation";
-  const puzzleLayout = getJigsawLayout(challenges.length);
+  const useSquareMobilePuzzle = useMediaQuery("(max-width: 560px)");
+  const puzzleLayout = getJigsawLayout(challenges.length, useSquareMobilePuzzle ? 1.05 : 1.65);
   const puzzleSlots = Array.from({ length: puzzleLayout.slotCount }, (_, index) => challenges[index] ?? null);
 
   return (
@@ -1176,7 +1197,7 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
 const JIGSAW_CELL_SIZE = 100;
 const JIGSAW_TAB_DEPTH = 32;
 
-function getJigsawLayout(questionCount) {
+function getJigsawLayout(questionCount, preferredRatio = 1.65) {
   const targetSlots = Math.max(6, Number(questionCount) + 1);
   const minColumns = Math.max(3, Math.ceil(Math.sqrt(targetSlots)));
   const maxColumns = Math.max(minColumns, Math.min(targetSlots, 6));
@@ -1187,7 +1208,7 @@ function getJigsawLayout(questionCount) {
     const slotCount = columns * rows;
     const ratio = columns / rows;
     const emptySlots = slotCount - targetSlots;
-    const score = Math.abs(ratio - 1.65) + emptySlots * 0.18 + (rows > columns ? 0.9 : 0);
+    const score = Math.abs(ratio - preferredRatio) + emptySlots * 0.18 + (rows > columns ? 0.9 : 0);
 
     if (!bestLayout || score < bestLayout.score) {
       bestLayout = { columns, rows, slotCount, score };
