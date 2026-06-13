@@ -2390,6 +2390,12 @@ function AdminPage({
     setFinalCodeAutoFillRequest(0);
   }
 
+  function applyWizardConfig(nextConfig) {
+    updateEditableConfig(() => applyFinalCodeRewards(nextConfig));
+    setFinalRewardsMessage("האשף יצר שלבים וחילק את הקוד הסופי.");
+    setActiveAdminTab("game");
+  }
+
   function updateGlobalSetting(field, value) {
     setGlobalSettings((current) => ({
       ...current,
@@ -2940,6 +2946,7 @@ function AdminPage({
           onRemoveChoiceOption={removeChoiceOption}
           onSaveConfig={saveConfig}
           onSplitFinalCodeRewards={fillRewardsFromFinalCodeNow}
+          onWizardApply={applyWizardConfig}
           onUpdateAnswerField={updateChallengeAnswerField}
           onUpdateChallenge={updateChallenge}
           onUpdateChoiceOption={updateChoiceOption}
@@ -3097,6 +3104,197 @@ function AdminCollapsibleSection({ title, meta, defaultOpen = false, children, c
   );
 }
 
+function createWizardChallenge(index, level, existingChallenge = null) {
+  const id = index + 1;
+
+  return {
+    ...(existingChallenge ?? {}),
+    id,
+    path: `/q/${id}`,
+    title: existingChallenge?.title || `קוד ${id}`,
+    question: level.question,
+    questionImageUrl: existingChallenge?.questionImageUrl ?? "",
+    answerType: "open",
+    answerInputMode: existingChallenge?.answerInputMode ?? "auto",
+    answer: level.answer,
+    answerFields: [],
+    choiceOptions: existingChallenge?.choiceOptions?.length
+      ? existingChallenge.choiceOptions
+      : [
+          { id: "option-1", text: "", correct: true },
+          { id: "option-2", text: "", correct: false },
+        ],
+    answerLabel: existingChallenge?.answerLabel ?? "",
+    reward: existingChallenge?.reward ?? "",
+    points: existingChallenge?.points ?? "",
+    wrongAnswerPenalty: existingChallenge?.wrongAnswerPenalty ?? "",
+    successMessage: existingChallenge?.successMessage ?? "",
+    errorMessage: existingChallenge?.errorMessage ?? "",
+  };
+}
+
+function AdminGameWizard({ config, onApply }) {
+  const [step, setStep] = useState("title");
+  const [input, setInput] = useState("");
+  const [draft, setDraft] = useState({
+    title: config.roomConfig.title ?? "",
+    finalCode: config.roomConfig.finalCode ?? "",
+    count: Math.max(1, config.challenges.length || 5),
+    levels: [],
+    pendingQuestion: "",
+  });
+  const [messages, setMessages] = useState([
+    { role: "assistant", text: "בואו נבנה משחק בצורת שיחה. מה שם המשחק?" },
+  ]);
+
+  function addMessages(nextMessages) {
+    setMessages((current) => [...current, ...nextMessages]);
+  }
+
+  function resetWizard() {
+    setStep("title");
+    setInput("");
+    setDraft({
+      title: config.roomConfig.title ?? "",
+      finalCode: config.roomConfig.finalCode ?? "",
+      count: Math.max(1, config.challenges.length || 5),
+      levels: [],
+      pendingQuestion: "",
+    });
+    setMessages([{ role: "assistant", text: "בואו נבנה משחק בצורת שיחה. מה שם המשחק?" }]);
+  }
+
+  function submitWizardMessage() {
+    const value = input.trim();
+
+    if (!value && !["title", "count"].includes(step)) {
+      return;
+    }
+
+    setInput("");
+
+    if (step === "title") {
+      const title = value || config.roomConfig.title || "חדר בריחה";
+      setDraft((current) => ({ ...current, title }));
+      setStep("finalCode");
+      addMessages([
+        { role: "user", text: title },
+        { role: "assistant", text: "מה התשובה לשלב הסופי?" },
+      ]);
+      return;
+    }
+
+    if (step === "finalCode") {
+      setDraft((current) => ({ ...current, finalCode: value }));
+      setStep("count");
+      addMessages([
+        { role: "user", text: value },
+        { role: "assistant", text: "כמה שלבים יהיו במשחק? אפשר לכתוב מספר, למשל 5." },
+      ]);
+      return;
+    }
+
+    if (step === "count") {
+      const count = Math.min(20, Math.max(1, Number.parseInt(value || config.challenges.length || "5", 10) || 5));
+      setDraft((current) => ({ ...current, count, levels: [], pendingQuestion: "" }));
+      setStep("question");
+      addMessages([
+        { role: "user", text: String(count) },
+        { role: "assistant", text: "מעולה. כתבו את השאלה לשלב 1." },
+      ]);
+      return;
+    }
+
+    if (step === "question") {
+      const nextIndex = draft.levels.length + 1;
+      setDraft((current) => ({ ...current, pendingQuestion: value }));
+      setStep("answer");
+      addMessages([
+        { role: "user", text: value },
+        { role: "assistant", text: `מה התשובה הנכונה לשלב ${nextIndex}?` },
+      ]);
+      return;
+    }
+
+    if (step === "answer") {
+      const nextLevels = [...draft.levels, { question: draft.pendingQuestion, answer: value }];
+      const finished = nextLevels.length >= draft.count;
+      setDraft((current) => ({ ...current, levels: nextLevels, pendingQuestion: "" }));
+      setStep(finished ? "done" : "question");
+      addMessages([
+        { role: "user", text: value },
+        {
+          role: "assistant",
+          text: finished
+            ? "סיימנו. אפשר להחיל את המשחק עכשיו, או להתחיל מחדש."
+            : `נשמר. כתבו את השאלה לשלב ${nextLevels.length + 1}.`,
+        },
+      ]);
+    }
+  }
+
+  function applyWizard() {
+    const levels = draft.levels.slice(0, draft.count);
+    const nextConfig = {
+      ...config,
+      roomConfig: {
+        ...config.roomConfig,
+        title: draft.title || config.roomConfig.title,
+        finalCode: draft.finalCode,
+      },
+      challenges: levels.map((level, index) => createWizardChallenge(index, level, config.challenges[index])),
+    };
+
+    onApply(nextConfig);
+    addMessages([{ role: "assistant", text: "בוצע. המשחק עודכן ונשמר אוטומטית." }]);
+  }
+
+  return (
+    <section className="admin-wizard-panel">
+      <div className="wizard-chat" aria-label="אשף יצירת משחק">
+        {messages.map((message, index) => (
+          <div className={`wizard-message is-${message.role}`} key={`${message.role}-${index}`}>
+            {message.text}
+          </div>
+        ))}
+      </div>
+
+      {step !== "done" ? (
+        <div className="wizard-input-row">
+          <input
+            className="admin-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                submitWizardMessage();
+              }
+            }}
+            placeholder="כתבו כאן..."
+            dir="auto"
+          />
+          <button className="primary-button" type="button" onClick={submitWizardMessage}>
+            <Sparkles aria-hidden="true" />
+            שליחה
+          </button>
+        </div>
+      ) : (
+        <div className="admin-actions">
+          <button className="primary-button" type="button" onClick={applyWizard}>
+            <Save aria-hidden="true" />
+            החל על המשחק
+          </button>
+          <button className="ghost-button" type="button" onClick={resetWizard}>
+            <RefreshCcw aria-hidden="true" />
+            התחלה מחדש
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AdminGameForm({
   config,
   finalRewardsMessage,
@@ -3110,6 +3308,7 @@ function AdminGameForm({
   onRemoveChoiceOption,
   onSaveConfig,
   onSplitFinalCodeRewards,
+  onWizardApply,
   onUpdateAnswerField,
   onUpdateChallenge,
   onUpdateChoiceOption,
@@ -3129,6 +3328,15 @@ function AdminGameForm({
           onClick={() => setSection("main")}
         >
           עיקרי
+        </button>
+        <button
+          aria-selected={section === "wizard"}
+          className={section === "wizard" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setSection("wizard")}
+        >
+          אשף
         </button>
         <button
           aria-selected={section === "levels"}
@@ -3235,6 +3443,8 @@ function AdminGameForm({
           )}
         </div>
       )}
+
+      {section === "wizard" && <AdminGameWizard config={config} onApply={onWizardApply} />}
 
       {section === "advanced" && (
         <>

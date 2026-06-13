@@ -2518,6 +2518,58 @@ h1 {
   gap: 0.8rem;
 }
 
+.admin-wizard-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(0.8rem, 2vw, 1rem);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface-strong);
+}
+
+.wizard-chat {
+  display: grid;
+  gap: 0.65rem;
+  max-height: min(58vh, 34rem);
+  overflow: auto;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--teal) 36%, var(--line));
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--teal) 12%, transparent), transparent 32%),
+    var(--surface);
+}
+
+.wizard-message {
+  width: fit-content;
+  max-width: min(88%, 42rem);
+  padding-block: 0.65rem;
+  padding-inline: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  color: var(--text);
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.wizard-message.is-assistant {
+  justify-self: start;
+  background: color-mix(in srgb, var(--surface-strong) 84%, var(--teal) 16%);
+}
+
+.wizard-message.is-user {
+  justify-self: end;
+  background: linear-gradient(135deg, var(--teal), var(--violet));
+  color: white;
+}
+
+.wizard-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
 .admin-message {
   margin: 0;
   color: var(--teal-dark);
@@ -3346,6 +3398,14 @@ h1 {
 
   .final-code-admin-row {
     grid-template-columns: 1fr;
+  }
+
+  .wizard-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-message {
+    max-width: 100%;
   }
 
   .admin-tabs {
