@@ -34,6 +34,10 @@ const GAME_ACCESS_KEY = "qr-escape-room-game-access-v1";
 const DEFAULT_GAME_ID = "main";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const MAX_IMAGE_DATA_URL_LENGTH = 650_000;
+const MAX_CONFIG_PAYLOAD_LENGTH = 4_300_000;
+const MAX_IMAGE_DIMENSION = 1400;
+const IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52];
 const supabase =
   SUPABASE_URL && SUPABASE_ANON_KEY
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -159,6 +163,47 @@ function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו את ה�
   return getEditableText(challenge.answerLabel, getEditableText(roomConfig.defaultAnswerLabel, fallback));
 }
 
+function loadImageElement(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load image"));
+    image.src = source;
+  });
+}
+
+async function compressImageDataUrl(dataUrl) {
+  const image = await loadImageElement(dataUrl);
+  const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Canvas is unavailable");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  let compressed = "";
+
+  for (const quality of IMAGE_QUALITY_STEPS) {
+    compressed = canvas.toDataURL("image/jpeg", quality);
+
+    if (compressed.length <= MAX_IMAGE_DATA_URL_LENGTH) {
+      return compressed;
+    }
+  }
+
+  throw new Error("Image is too large");
+}
+
 function readImageFile(file) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith("image/")) {
@@ -167,7 +212,13 @@ function readImageFile(file) {
     }
 
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onload = async () => {
+      try {
+        resolve(await compressImageDataUrl(String(reader.result ?? "")));
+      } catch (error) {
+        reject(error);
+      }
+    };
     reader.onerror = () => reject(reader.error ?? new Error("Failed to read image"));
     reader.readAsDataURL(file);
   });
@@ -195,20 +246,33 @@ async function postJson(url, body, token) {
 }
 
 async function putJson(url, body, token) {
+  const serializedBody = JSON.stringify(body);
+
+  if (serializedBody.length > MAX_CONFIG_PAYLOAD_LENGTH) {
+    const error = new Error("payload_too_large");
+    error.status = 413;
+    error.data = { error: "payload_too_large" };
+    throw error;
+  }
+
   const response = await fetch(url, {
     method: "PUT",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body: serializedBody,
   });
+  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    const error = new Error(data?.message ?? data?.error ?? `Request failed: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
-  return response.json();
+  return data;
 }
 
 async function deleteJson(url, body, token) {
@@ -299,6 +363,18 @@ function formatDuration(milliseconds) {
   }
 
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getSaveErrorMessage(error) {
+  if (error?.status === 413 || error?.data?.error === "payload_too_large") {
+    return "השמירה נכשלה כי התמונה גדולה מדי. העלו תמונה קטנה יותר או השתמשו בקישור לתמונה.";
+  }
+
+  if (error?.status >= 500) {
+    return "השמירה נכשלה בגלל שגיאת שרת. אם העליתם תמונה, נסו תמונה קטנה יותר או קישור לתמונה.";
+  }
+
+  return "השמירה נכשלה. נסו שוב.";
 }
 
 export default function App() {
@@ -2307,9 +2383,9 @@ function AdminPage({
       loadAdminConfig(token);
       setStatus("ready");
       setMessage("השינויים נשמרו. ההתקדמות בדפדפן הזה אופסה כדי לבדוק את ההגדרות החדשות מיד.");
-    } catch {
+    } catch (error) {
       setStatus("ready");
-      setMessage("השמירה נכשלה. נסה שוב.");
+      setMessage(getSaveErrorMessage(error));
     }
   }
 
@@ -2427,8 +2503,8 @@ function AdminPage({
       setEditingGame(null);
       setEditingGameConfig(null);
       setMessage("פרטי המשחק נשמרו.");
-    } catch {
-      setMessage("לא הצלחנו לשמור את פרטי המשחק.");
+    } catch (error) {
+      setMessage(getSaveErrorMessage(error));
     }
   }
 
@@ -3333,7 +3409,7 @@ function AdminImageField({ label, value, onChange, help }) {
       onChange(dataUrl);
       setUploadStatus("התמונה נטענה. צריך לשמור את המשחק.");
     } catch {
-      setUploadStatus("לא הצלחנו לקרוא את התמונה. נסו קובץ תמונה אחר.");
+      setUploadStatus("התמונה גדולה מדי. נסו תמונה קטנה יותר או הדביקו קישור לתמונה.");
     } finally {
       event.target.value = "";
     }
