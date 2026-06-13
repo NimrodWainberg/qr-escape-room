@@ -12,6 +12,35 @@ import {
 } from "./game-store.js";
 
 const MAX_CONFIG_BODY_BYTES = 4_500_000;
+const PRESERVE_IMAGE_VALUE = "__qr_escape_room_preserve_image__";
+
+function resolvePreservedImages(nextConfig, savedConfig) {
+  if (!nextConfig || !savedConfig) {
+    return nextConfig;
+  }
+
+  return {
+    ...nextConfig,
+    roomConfig: {
+      ...nextConfig.roomConfig,
+      puzzleImageUrl:
+        nextConfig.roomConfig?.puzzleImageUrl === PRESERVE_IMAGE_VALUE
+          ? savedConfig.roomConfig?.puzzleImageUrl ?? ""
+          : nextConfig.roomConfig?.puzzleImageUrl,
+    },
+    challenges: (nextConfig.challenges ?? []).map((challenge, index) => {
+      const savedChallenge =
+        savedConfig.challenges?.find((item) => String(item.id) === String(challenge.id)) ??
+        savedConfig.challenges?.[index];
+
+      return {
+        ...challenge,
+        questionImageUrl:
+          challenge.questionImageUrl === PRESERVE_IMAGE_VALUE ? savedChallenge?.questionImageUrl ?? "" : challenge.questionImageUrl,
+      };
+    }),
+  };
+}
 
 export const handler = async (event) => {
   try {
@@ -44,7 +73,9 @@ export const handler = async (event) => {
       return jsonResponse(400, { error: "invalid_json" });
     }
 
-    const [savedConfig, globalSettings] = await Promise.all([saveGameConfig(body, gameId), getGlobalSettings()]);
+    const existingConfig = await getGameConfig(gameId);
+    const configToSave = resolvePreservedImages(body, existingConfig);
+    const [savedConfig, globalSettings] = await Promise.all([saveGameConfig(configToSave, gameId), getGlobalSettings()]);
 
     return jsonResponse(200, {
       config: savedConfig,

@@ -38,6 +38,7 @@ const MAX_IMAGE_DATA_URL_LENGTH = 650_000;
 const MAX_CONFIG_PAYLOAD_LENGTH = 4_300_000;
 const MAX_IMAGE_DIMENSION = 1400;
 const IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52];
+const PRESERVE_IMAGE_VALUE = "__qr_escape_room_preserve_image__";
 const supabase =
   SUPABASE_URL && SUPABASE_ANON_KEY
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -167,6 +168,45 @@ const ADMIN_HELP_TEXTS = new Set([
 function getPlayerQuestionText(value) {
   const text = String(value ?? "").trim();
   return ADMIN_HELP_TEXTS.has(text) ? "" : text;
+}
+
+function isImageDataUrl(value) {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
+
+function preserveUnchangedImagesForSave(nextConfig, savedConfig) {
+  if (!nextConfig || !savedConfig) {
+    return nextConfig;
+  }
+
+  const nextPuzzleImageUrl = nextConfig.roomConfig?.puzzleImageUrl ?? "";
+  const savedPuzzleImageUrl = savedConfig.roomConfig?.puzzleImageUrl ?? "";
+
+  return {
+    ...nextConfig,
+    roomConfig: {
+      ...nextConfig.roomConfig,
+      puzzleImageUrl:
+        isImageDataUrl(nextPuzzleImageUrl) && nextPuzzleImageUrl === savedPuzzleImageUrl
+          ? PRESERVE_IMAGE_VALUE
+          : nextPuzzleImageUrl,
+    },
+    challenges: (nextConfig.challenges ?? []).map((challenge, index) => {
+      const savedChallenge =
+        savedConfig.challenges?.find((item) => String(item.id) === String(challenge.id)) ??
+        savedConfig.challenges?.[index];
+      const nextQuestionImageUrl = challenge.questionImageUrl ?? "";
+      const savedQuestionImageUrl = savedChallenge?.questionImageUrl ?? "";
+
+      return {
+        ...challenge,
+        questionImageUrl:
+          isImageDataUrl(nextQuestionImageUrl) && nextQuestionImageUrl === savedQuestionImageUrl
+            ? PRESERVE_IMAGE_VALUE
+            : nextQuestionImageUrl,
+      };
+    }),
+  };
 }
 
 function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו את הקוד") {
@@ -2309,6 +2349,7 @@ function AdminPage({
   const [newGameId, setNewGameId] = useState("");
   const [editingGame, setEditingGame] = useState(null);
   const [editingGameConfig, setEditingGameConfig] = useState(null);
+  const [editingGameSavedConfig, setEditingGameSavedConfig] = useState(null);
   const [wizardGame, setWizardGame] = useState(null);
   const [wizardGameConfig, setWizardGameConfig] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
@@ -2322,6 +2363,7 @@ function AdminPage({
   const [configAutosaveRequest, setConfigAutosaveRequest] = useState(0);
   const [globalAutosaveRequest, setGlobalAutosaveRequest] = useState(0);
   const latestConfigRef = useRef(config);
+  const savedConfigRef = useRef(config);
   const latestGlobalSettingsRef = useRef(globalSettings);
 
   useEffect(() => {
@@ -2352,6 +2394,8 @@ function AdminPage({
       setConfigAutosaveRequest(0);
       setGlobalAutosaveRequest(0);
       setConfig(nextConfig);
+      latestConfigRef.current = nextConfig;
+      savedConfigRef.current = nextConfig;
       setAnalytics(nextAnalytics);
       try {
         const [usersResponse, gamesResponse, settingsResponse] = await Promise.all([
@@ -2370,6 +2414,8 @@ function AdminPage({
       localStorage.removeItem(ADMIN_TOKEN_KEY);
       setToken("");
       setConfig(null);
+      latestConfigRef.current = null;
+      savedConfigRef.current = null;
       setStatus("idle");
       setMessage("החיבור לניהול פג או לא תקין. צריך להתחבר שוב.");
     }
@@ -2399,10 +2445,12 @@ function AdminPage({
       setMessage("שומר אוטומטית...");
 
       try {
-        const response = await putJson(withGame(API.adminConfig, gameId), latestConfigRef.current, token);
+        const payload = preserveUnchangedImagesForSave(latestConfigRef.current, savedConfigRef.current);
+        const response = await putJson(withGame(API.adminConfig, gameId), payload, token);
         const publicConfig =
           response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId)));
         latestConfigRef.current = response.config;
+        savedConfigRef.current = response.config;
         setConfig(response.config);
         onPublicConfigChange(publicConfig);
         onPublicGamesRefresh();
@@ -2508,6 +2556,7 @@ function AdminPage({
         response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, cleanGameId)));
       setConfig(response.config);
       latestConfigRef.current = response.config;
+      savedConfigRef.current = response.config;
       onPublicConfigChange(publicConfig);
     }
 
@@ -2697,10 +2746,13 @@ function AdminPage({
 
     try {
       setConfigAutosaveRequest(0);
-      const response = await putJson(withGame(API.adminConfig, gameId), config, token);
+      const payload = preserveUnchangedImagesForSave(config, savedConfigRef.current);
+      const response = await putJson(withGame(API.adminConfig, gameId), payload, token);
       const publicConfig =
         response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId)));
       setConfig(response.config);
+      latestConfigRef.current = response.config;
+      savedConfigRef.current = response.config;
       onPublicConfigChange(publicConfig);
       onPublicGamesRefresh();
       onResetProgress();
@@ -2786,13 +2838,16 @@ function AdminPage({
     setMessage("");
     setEditingGame(game);
     setEditingGameConfig(null);
+    setEditingGameSavedConfig(null);
 
     try {
       const nextConfig = await getJson(withGame(API.adminConfig, game.id), token);
       setEditingGameConfig(nextConfig);
+      setEditingGameSavedConfig(nextConfig);
     } catch {
       setMessage("לא הצלחנו לפתוח את עריכת המשחק.");
       setEditingGame(null);
+      setEditingGameSavedConfig(null);
     }
   }
 
@@ -2816,18 +2871,22 @@ function AdminPage({
     setMessage("");
 
     try {
-      const response = await putJson(withGame(API.adminConfig, editingGame.id), editingGameConfig, token);
+      const payload = preserveUnchangedImagesForSave(editingGameConfig, editingGameSavedConfig);
+      const response = await putJson(withGame(API.adminConfig, editingGame.id), payload, token);
       const gamesResponse = await getJson(API.adminGames, token);
       setGames(gamesResponse.games ?? []);
 
       if (editingGame.id === gameId) {
         setConfig(response.config);
+        latestConfigRef.current = response.config;
+        savedConfigRef.current = response.config;
         onPublicConfigChange(response.publicConfig);
       }
 
       onPublicGamesRefresh();
       setEditingGame(null);
       setEditingGameConfig(null);
+      setEditingGameSavedConfig(null);
       setMessage("פרטי המשחק נשמרו.");
     } catch (error) {
       setMessage(getSaveErrorMessage(error));
@@ -2838,6 +2897,7 @@ function AdminPage({
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken("");
     setConfig(null);
+    savedConfigRef.current = null;
     setAnalytics(null);
     setGlobalSettings({ showEmailLogin: true });
     setAdminUsers([]);
@@ -3009,7 +3069,14 @@ function AdminPage({
       )}
 
       {editingGame && (
-        <Modal title="עריכת משחק" onClose={() => setEditingGame(null)}>
+        <Modal
+          title="עריכת משחק"
+          onClose={() => {
+            setEditingGame(null);
+            setEditingGameConfig(null);
+            setEditingGameSavedConfig(null);
+          }}
+        >
           <form className="admin-form" onSubmit={saveGameEdit}>
             {!editingGameConfig ? (
               <p className="admin-message">טוען...</p>
