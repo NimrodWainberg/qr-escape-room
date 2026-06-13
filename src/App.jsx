@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 import React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { defaultPublicGameConfig } from "./data/challenges.js";
 
@@ -2187,6 +2187,18 @@ function AdminPage({
   const [message, setMessage] = useState("");
   const [finalCodeAutoFillRequest, setFinalCodeAutoFillRequest] = useState(0);
   const [finalRewardsMessage, setFinalRewardsMessage] = useState("");
+  const [configAutosaveRequest, setConfigAutosaveRequest] = useState(0);
+  const [globalAutosaveRequest, setGlobalAutosaveRequest] = useState(0);
+  const latestConfigRef = useRef(config);
+  const latestGlobalSettingsRef = useRef(globalSettings);
+
+  useEffect(() => {
+    latestConfigRef.current = config;
+  }, [config]);
+
+  useEffect(() => {
+    latestGlobalSettingsRef.current = globalSettings;
+  }, [globalSettings]);
 
   useEffect(() => {
     if (!token) {
@@ -2205,6 +2217,8 @@ function AdminPage({
         getJson(withGame(API.adminConfig, gameId), activeToken),
         getJson(withGame(API.adminAnalytics, gameId), activeToken),
       ]);
+      setConfigAutosaveRequest(0);
+      setGlobalAutosaveRequest(0);
       setConfig(nextConfig);
       setAnalytics(nextAnalytics);
       try {
@@ -2229,6 +2243,69 @@ function AdminPage({
     }
   }
 
+  function queueConfigAutosave() {
+    setMessage("שומר אוטומטית בעוד רגע...");
+    setConfigAutosaveRequest(Date.now());
+  }
+
+  function queueGlobalAutosave() {
+    setMessage("שומר אוטומטית בעוד רגע...");
+    setGlobalAutosaveRequest(Date.now());
+  }
+
+  function updateEditableConfig(updater) {
+    setConfig(updater);
+    queueConfigAutosave();
+  }
+
+  useEffect(() => {
+    if (!configAutosaveRequest || !token || !latestConfigRef.current) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      setMessage("שומר אוטומטית...");
+
+      try {
+        const response = await putJson(withGame(API.adminConfig, gameId), latestConfigRef.current, token);
+        const publicConfig =
+          response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId)));
+        latestConfigRef.current = response.config;
+        setConfig(response.config);
+        onPublicConfigChange(publicConfig);
+        onPublicGamesRefresh();
+        setMessage("נשמר אוטומטית.");
+      } catch (error) {
+        setMessage(getSaveErrorMessage(error));
+      }
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [configAutosaveRequest, gameId, token]);
+
+  useEffect(() => {
+    if (!globalAutosaveRequest || !token || !latestGlobalSettingsRef.current) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      setMessage("שומר אוטומטית...");
+
+      try {
+        const nextSettings = await putJson(API.adminSettings, latestGlobalSettingsRef.current, token);
+        const publicConfig = await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId));
+        latestGlobalSettingsRef.current = nextSettings;
+        setGlobalSettings(nextSettings);
+        onPublicConfigChange(publicConfig);
+        setMessage("נשמר אוטומטית.");
+      } catch {
+        setMessage("שמירת ההגדרות הכלליות נכשלה.");
+      }
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [gameId, globalAutosaveRequest, token]);
+
   async function submitLogin(event) {
     event.preventDefault();
     setStatus("loading");
@@ -2250,7 +2327,7 @@ function AdminPage({
   }
 
   function updateRoomConfig(field, value) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       roomConfig: {
         ...current.roomConfig,
@@ -2270,7 +2347,7 @@ function AdminPage({
     }
 
     const timeoutId = window.setTimeout(() => {
-      setConfig((current) => {
+      updateEditableConfig((current) => {
         const nextConfig = applyFinalCodeRewards(current);
         setFinalRewardsMessage(getFinalCodeRewardsMessage(nextConfig));
         return nextConfig;
@@ -2281,9 +2358,9 @@ function AdminPage({
   }, [finalCodeAutoFillRequest]);
 
   function fillRewardsFromFinalCodeNow() {
-    setConfig((current) => {
+    updateEditableConfig((current) => {
       const nextConfig = applyFinalCodeRewards(current);
-      setFinalRewardsMessage(getFinalCodeRewardsMessage(nextConfig));
+      setFinalRewardsMessage(`בוצע. ${getFinalCodeRewardsMessage(nextConfig)}`);
       return nextConfig;
     });
     setFinalCodeAutoFillRequest(0);
@@ -2294,6 +2371,7 @@ function AdminPage({
       ...current,
       [field]: value,
     }));
+    queueGlobalAutosave();
   }
 
   async function saveGlobalSettings(event) {
@@ -2302,6 +2380,7 @@ function AdminPage({
     setMessage("");
 
     try {
+      setGlobalAutosaveRequest(0);
       const nextSettings = await putJson(API.adminSettings, globalSettings, token);
       const publicConfig = await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId));
       setGlobalSettings(nextSettings);
@@ -2315,7 +2394,7 @@ function AdminPage({
   }
 
   function updateChallenge(index, field, value) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) =>
         challengeIndex === index ? { ...challenge, [field]: value } : challenge,
@@ -2324,7 +2403,7 @@ function AdminPage({
   }
 
   function updateChallengeAnswerField(index, fieldIndex, field, value) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) => {
         if (challengeIndex !== index) {
@@ -2344,7 +2423,7 @@ function AdminPage({
   }
 
   function addChallengeAnswerField(index) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) => {
         if (challengeIndex !== index || (challenge.answerFields?.length ?? 0) >= 6) {
@@ -2361,7 +2440,7 @@ function AdminPage({
   }
 
   function removeChallengeAnswerField(index, fieldIndex) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) =>
         challengeIndex === index
@@ -2372,7 +2451,7 @@ function AdminPage({
   }
 
   function updateChoiceOption(index, optionIndex, field, value) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) => {
         if (challengeIndex !== index) {
@@ -2400,7 +2479,7 @@ function AdminPage({
   }
 
   function addChoiceOption(index) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) => {
         if (challengeIndex !== index || (challenge.choiceOptions?.length ?? 0) >= 8) {
@@ -2417,7 +2496,7 @@ function AdminPage({
   }
 
   function removeChoiceOption(index, optionIndex) {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: current.challenges.map((challenge, challengeIndex) => {
         if (challengeIndex !== index) {
@@ -2436,14 +2515,14 @@ function AdminPage({
   }
 
   function addChallenge() {
-    setConfig((current) => ({
+    updateEditableConfig((current) => ({
       ...current,
       challenges: [...current.challenges, createBlankChallenge(current.challenges)],
     }));
   }
 
   function removeChallenge(index) {
-    setConfig((current) => {
+    updateEditableConfig((current) => {
       if (current.challenges.length <= 1) {
         return current;
       }
@@ -2461,6 +2540,7 @@ function AdminPage({
     setMessage("");
 
     try {
+      setConfigAutosaveRequest(0);
       const response = await putJson(withGame(API.adminConfig, gameId), config, token);
       const publicConfig =
         response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, gameId)));
