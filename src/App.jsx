@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import React from "react";
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { defaultPublicGameConfig } from "./data/challenges.js";
 
 const STORAGE_KEY = "qr-escape-room-solved-v1";
@@ -31,6 +32,17 @@ const PLAYER_SESSION_KEY = "qr-escape-room-player-session-v1";
 const PLAYER_PROFILE_KEY = "qr-escape-room-player-profile-v1";
 const GAME_ACCESS_KEY = "qr-escape-room-game-access-v1";
 const DEFAULT_GAME_ID = "main";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const supabase =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null;
 
 const API = {
   publicConfig: "/.netlify/functions/public-config",
@@ -46,8 +58,6 @@ const API = {
   adminUsers: "/.netlify/functions/admin-users",
   leaderboard: "/.netlify/functions/leaderboard",
   playerLogin: "/.netlify/functions/player-login",
-  requestPlayerOtp: "/.netlify/functions/request-player-otp",
-  verifyPlayerOtp: "/.netlify/functions/verify-player-otp",
 };
 
 function normalizeGameId(value) {
@@ -497,20 +507,45 @@ export default function App() {
     await loadLeaderboard();
   }
 
-  async function requestPlayerOtp(credentials) {
-    return postJson(API.requestPlayerOtp, { ...credentials, gameId });
+  async function requestEmailOtp(credentials) {
+    if (!supabase) {
+      throw new Error("supabase_missing");
+    }
+
+    const email = String(credentials.email ?? "").trim().toLowerCase();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || "supabase_otp_failed");
+    }
+
+    return { sent: true };
   }
 
-  async function verifyPlayerOtp(credentials) {
-    const session = await postJson(API.verifyPlayerOtp, { ...credentials, gameId });
-    const sessionWithGame = { ...session, gameId };
-    const profile = { name: credentials.name, email: credentials.email ?? "" };
-    localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
-    localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(sessionWithGame));
-    setPlayerProfile(profile);
-    setPlayerSession(sessionWithGame);
-    setShowLoginModal(false);
-    await loadLeaderboard();
+  async function verifyEmailOtp(credentials) {
+    if (!supabase) {
+      throw new Error("supabase_missing");
+    }
+
+    const email = String(credentials.email ?? "").trim().toLowerCase();
+    const code = String(credentials.code ?? "").trim();
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "email",
+    });
+
+    if (error) {
+      throw new Error(error.message || "supabase_otp_invalid");
+    }
+
+    await supabase.auth.signOut().catch(() => {});
+    await loginPlayer({ name: credentials.name, email });
   }
 
   function updatePlayer(player) {
@@ -717,8 +752,8 @@ export default function App() {
           <LoginChoices
             showEmailLogin={roomConfig.showEmailLogin}
             onGuestLogin={loginPlayer}
-            onRequestOtp={requestPlayerOtp}
-            onVerifyOtp={verifyPlayerOtp}
+            onRequestOtp={requestEmailOtp}
+            onVerifyOtp={verifyEmailOtp}
           />
         </Modal>
       )}
@@ -944,8 +979,8 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
   const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
     ? roomConfig.puzzleTheme
     : "vacation";
-  const slotCount = Math.max(6, challenges.length);
-  const puzzleSlots = Array.from({ length: slotCount }, (_, index) => challenges[index] ?? null);
+  const puzzleLayout = getJigsawLayout(challenges.length);
+  const puzzleSlots = Array.from({ length: puzzleLayout.slotCount }, (_, index) => challenges[index] ?? null);
 
   return (
     <section className={`puzzle-progress puzzle-${theme} ${finalUnlocked ? "is-complete" : ""}`} aria-label="פאזל התקדמות">
@@ -965,13 +1000,21 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
           <span className="puzzle-landmark" />
         </div>
 
-        <div className="jigsaw-board" style={{ "--piece-count": slotCount }}>
+        <div
+          className="jigsaw-board"
+          style={{
+            "--jigsaw-columns": puzzleLayout.columns,
+            "--jigsaw-rows": puzzleLayout.rows,
+            "--jigsaw-aspect": `${puzzleLayout.columns} / ${puzzleLayout.rows}`,
+          }}
+        >
           <JigsawBoardPicture
             puzzleSlots={puzzleSlots}
             challenges={challenges}
             solved={solved}
             theme={theme}
             imageUrl={roomConfig.puzzleImageUrl}
+            layout={puzzleLayout}
           />
 
           {puzzleSlots.map((challenge, index) => {
@@ -979,16 +1022,22 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
             const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
             const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
             const recentlySolved = challenge?.id === recentlySolvedId;
-            const visualIndex = getRtlJigsawIndex(index);
-            const col = visualIndex % 3;
-            const row = Math.floor(index / 3);
+            const visualIndex = getRtlJigsawIndex(index, puzzleLayout);
+            const col = visualIndex % puzzleLayout.columns;
+            const row = Math.floor(visualIndex / puzzleLayout.columns);
 
             return (
               <button
                 className={`jigsaw-slot ${state} ${recentlySolved ? "is-recently-solved" : ""}`}
                 key={challenge?.id ?? `mystery-${index}`}
                 type="button"
-                style={{ "--piece-index": visualIndex, "--piece-col": col, "--piece-row": row }}
+                style={{
+                  "--piece-index": visualIndex,
+                  "--piece-col": col,
+                  "--piece-row": row,
+                  "--piece-x": puzzleLayout.columns > 1 ? `${(col / (puzzleLayout.columns - 1)) * 100}%` : "50%",
+                  "--piece-y": puzzleLayout.rows > 1 ? `${(row / (puzzleLayout.rows - 1)) * 100}%` : "50%",
+                }}
                 disabled={!challenge || !unlockedChallenge}
                 onClick={() => challenge && onNavigate(challenge.path)}
                 aria-label={
@@ -1033,14 +1082,27 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
   );
 }
 
-const JIGSAW_COLUMNS = 3;
-const JIGSAW_ROWS = 2;
+const JIGSAW_CELL_SIZE = 100;
 const JIGSAW_TAB_DEPTH = 32;
 
-function getRtlJigsawIndex(index) {
-  const row = Math.floor(index / JIGSAW_COLUMNS);
-  const col = index % JIGSAW_COLUMNS;
-  return row * JIGSAW_COLUMNS + (JIGSAW_COLUMNS - 1 - col);
+function getJigsawLayout(questionCount) {
+  const targetSlots = Math.max(6, Number(questionCount) + 1);
+  const columns = Math.max(3, Math.ceil(Math.sqrt(targetSlots)));
+  const rows = Math.max(2, Math.ceil(targetSlots / columns));
+
+  return {
+    columns,
+    rows,
+    slotCount: columns * rows,
+    width: columns * JIGSAW_CELL_SIZE,
+    height: rows * JIGSAW_CELL_SIZE,
+  };
+}
+
+function getRtlJigsawIndex(index, layout) {
+  const row = Math.floor(index / layout.columns);
+  const col = index % layout.columns;
+  return row * layout.columns + (layout.columns - 1 - col);
 }
 
 function getSharedVerticalEdge(row, col) {
@@ -1051,14 +1113,14 @@ function getSharedHorizontalEdge(row, col) {
   return (row + col) % 2 === 0 ? -1 : 1;
 }
 
-function getJigsawEdges(index) {
-  const col = index % JIGSAW_COLUMNS;
-  const row = Math.floor(index / JIGSAW_COLUMNS);
+function getJigsawEdges(index, layout) {
+  const col = index % layout.columns;
+  const row = Math.floor(index / layout.columns);
 
   return {
     top: row === 0 ? 0 : -getSharedHorizontalEdge(row - 1, col),
-    right: col === JIGSAW_COLUMNS - 1 ? 0 : getSharedVerticalEdge(row, col),
-    bottom: row === JIGSAW_ROWS - 1 ? 0 : getSharedHorizontalEdge(row, col),
+    right: col === layout.columns - 1 ? 0 : getSharedVerticalEdge(row, col),
+    bottom: row === layout.rows - 1 ? 0 : getSharedHorizontalEdge(row, col),
     left: col === 0 ? 0 : -getSharedVerticalEdge(row, col - 1),
   };
 }
@@ -1108,39 +1170,41 @@ function verticalJigsawEdge(x, fromY, toY, direction) {
   ].join(" ");
 }
 
-function createJigsawPath(index) {
-  const edges = getJigsawEdges(index);
-  const col = index % JIGSAW_COLUMNS;
-  const row = Math.floor(index / JIGSAW_COLUMNS);
-  const x = col * 100;
-  const y = row * 100;
+function createJigsawPath(index, layout) {
+  const edges = getJigsawEdges(index, layout);
+  const col = index % layout.columns;
+  const row = Math.floor(index / layout.columns);
+  const x = col * JIGSAW_CELL_SIZE;
+  const y = row * JIGSAW_CELL_SIZE;
+  const nextX = x + JIGSAW_CELL_SIZE;
+  const nextY = y + JIGSAW_CELL_SIZE;
 
   return [
     `M${x} ${y}`,
-    horizontalJigsawEdge(y, x, x + 100, -edges.top),
-    verticalJigsawEdge(x + 100, y, y + 100, edges.right),
-    horizontalJigsawEdge(y + 100, x + 100, x, edges.bottom),
-    verticalJigsawEdge(x, y + 100, y, -edges.left),
+    horizontalJigsawEdge(y, x, nextX, -edges.top),
+    verticalJigsawEdge(nextX, y, nextY, edges.right),
+    horizontalJigsawEdge(nextY, nextX, x, edges.bottom),
+    verticalJigsawEdge(x, nextY, y, -edges.left),
     "Z",
   ].join(" ");
 }
 
-function createJigsawSeamPath() {
+function createJigsawSeamPath(layout) {
   const paths = [];
 
-  for (let row = 0; row < JIGSAW_ROWS; row += 1) {
-    for (let col = 0; col < JIGSAW_COLUMNS - 1; col += 1) {
-      const x = (col + 1) * 100;
-      const y = row * 100;
-      paths.push(`M${x} ${y} ${verticalJigsawEdge(x, y, y + 100, getSharedVerticalEdge(row, col))}`);
+  for (let row = 0; row < layout.rows; row += 1) {
+    for (let col = 0; col < layout.columns - 1; col += 1) {
+      const x = (col + 1) * JIGSAW_CELL_SIZE;
+      const y = row * JIGSAW_CELL_SIZE;
+      paths.push(`M${x} ${y} ${verticalJigsawEdge(x, y, y + JIGSAW_CELL_SIZE, getSharedVerticalEdge(row, col))}`);
     }
   }
 
-  for (let row = 0; row < JIGSAW_ROWS - 1; row += 1) {
-    for (let col = 0; col < JIGSAW_COLUMNS; col += 1) {
-      const x = col * 100;
-      const y = (row + 1) * 100;
-      paths.push(`M${x} ${y} ${horizontalJigsawEdge(y, x, x + 100, getSharedHorizontalEdge(row, col))}`);
+  for (let row = 0; row < layout.rows - 1; row += 1) {
+    for (let col = 0; col < layout.columns; col += 1) {
+      const x = col * JIGSAW_CELL_SIZE;
+      const y = (row + 1) * JIGSAW_CELL_SIZE;
+      paths.push(`M${x} ${y} ${horizontalJigsawEdge(y, x, x + JIGSAW_CELL_SIZE, getSharedHorizontalEdge(row, col))}`);
     }
   }
 
@@ -1220,11 +1284,11 @@ function PuzzlePictureArt({ theme, imageUrl, shadeId }) {
   );
 }
 
-function JigsawBoardPicture({ puzzleSlots, challenges, solved, theme, imageUrl }) {
+function JigsawBoardPicture({ puzzleSlots, challenges, solved, theme, imageUrl, layout }) {
   const shadeId = "jigsaw-board-picture-shade";
 
   return (
-    <svg className="jigsaw-board-picture" viewBox="0 0 300 200" aria-hidden="true" focusable="false">
+    <svg className="jigsaw-board-picture" viewBox={`0 0 ${layout.width} ${layout.height}`} aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id={shadeId} x1="0" x2="1" y1="0" y2="1">
           <stop offset="0" stopColor="white" stopOpacity="0.18" />
@@ -1233,10 +1297,12 @@ function JigsawBoardPicture({ puzzleSlots, challenges, solved, theme, imageUrl }
         </linearGradient>
       </defs>
 
-      <PuzzlePictureArt theme={theme} imageUrl={imageUrl} shadeId={shadeId} />
+      <g transform={`scale(${layout.width / 300} ${layout.height / 200})`}>
+        <PuzzlePictureArt theme={theme} imageUrl={imageUrl} shadeId={shadeId} />
+      </g>
 
       {puzzleSlots.map((challenge, index) => {
-        const visualIndex = getRtlJigsawIndex(index);
+        const visualIndex = getRtlJigsawIndex(index, layout);
         const solvedChallenge = challenge ? isChallengeSolved(challenge, solved) : false;
         const unlockedChallenge = challenge ? isChallengeUnlocked(challenges, challenge, solved) : false;
         const state = !challenge ? "is-mystery" : solvedChallenge ? "is-filled" : unlockedChallenge ? "is-available" : "is-empty";
@@ -1244,15 +1310,15 @@ function JigsawBoardPicture({ puzzleSlots, challenges, solved, theme, imageUrl }
         return (
           <path
             className={`jigsaw-piece-fill-layer ${state}`}
-            d={createJigsawPath(visualIndex)}
+            d={createJigsawPath(visualIndex, layout)}
             fill={state === "is-filled" || state === "is-mystery" ? "transparent" : "#77818a"}
             key={challenge?.id ?? `mystery-picture-${index}`}
           />
         );
       })}
 
-      <path className="jigsaw-board-seams" d={createJigsawSeamPath()} fill="none" />
-      <path className="jigsaw-board-outline" d="M0 0H300V200H0Z" fill="none" />
+      <path className="jigsaw-board-seams" d={createJigsawSeamPath(layout)} fill="none" />
+      <path className="jigsaw-board-outline" d={`M0 0H${layout.width}V${layout.height}H0Z`} fill="none" />
     </svg>
   );
 }
@@ -1378,36 +1444,21 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
       await onRequestOtp({ name, email });
       setStep("code");
       setStatus("idle");
-      setMessage("שלחנו קוד בן 6 ספרות לאימייל. הקוד תקף ל-10 דקות.");
+      setMessage("שלחנו קוד בן 6 ספרות לאימייל.");
     } catch (error) {
       setStatus("idle");
 
-      if (error.status === 409 || error.message === "email_provider_missing") {
-        setMessage("כניסה באימייל מוכנה, אבל צריך להגדיר Environment variables ב-Netlify, לא OAuth providers.");
+      if (error.message === "supabase_missing") {
+        setMessage("צריך להגדיר VITE_SUPABASE_URL ו-VITE_SUPABASE_ANON_KEY ב-Netlify ואז לפרוס מחדש.");
         return;
       }
 
-      if (error.message === "invalid_email") {
-        setMessage("האימייל לא נראה תקין.");
+      if (String(error.message).toLowerCase().includes("email")) {
+        setMessage("האימייל לא נראה תקין או ש-Supabase לא הצליח לשלוח אליו קוד.");
         return;
       }
 
-      if (error.message === "email_api_key_invalid") {
-        setMessage("מפתח Resend לא תקין. צריך להחליף את RESEND_API_KEY ב-Netlify למפתח אמיתי שמתחיל בדרך כלל ב-re_");
-        return;
-      }
-
-      if (error.message === "email_sender_invalid") {
-        setMessage("כתובת השולח לא מאומתת ב-Resend. הגדירו OTP_FROM_EMAIL לכתובת/דומיין מאומתים.");
-        return;
-      }
-
-      if (error.status === 502 || error.message === "email_failed") {
-        setMessage("ספק האימייל דחה את השליחה. בדקו שהשולח מאומת ב-Resend או כבו כניסה באימייל בהגדרות.");
-        return;
-      }
-
-      setMessage("לא הצלחנו לשלוח קוד כרגע.");
+      setMessage("לא הצלחנו לשלוח קוד דרך Supabase כרגע.");
     }
   }
 
@@ -1422,19 +1473,13 @@ function EmailOtpPanel({ onRequestOtp, onVerifyOtp }) {
     } catch (error) {
       setStatus("idle");
 
-      if (error.message === "otp_expired") {
-        setMessage("הקוד פג תוקף. בקשו קוד חדש.");
+      if (error.message === "supabase_missing") {
+        setMessage("צריך להגדיר VITE_SUPABASE_URL ו-VITE_SUPABASE_ANON_KEY ב-Netlify ואז לפרוס מחדש.");
         setStep("email");
         return;
       }
 
-      if (error.message === "otp_locked") {
-        setMessage("היו יותר מדי ניסיונות. בקשו קוד חדש.");
-        setStep("email");
-        return;
-      }
-
-      setMessage("הקוד לא נכון. בדקו את האימייל ונסו שוב.");
+      setMessage("הקוד לא נכון או שפג תוקף. בדקו את האימייל ונסו שוב.");
     }
   }
 

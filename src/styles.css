@@ -1017,15 +1017,18 @@ h1 {
 
 .jigsaw-board {
   --jigsaw-board-padding: clamp(0.35rem, 1.2vw, 0.65rem);
+  --jigsaw-columns: 3;
+  --jigsaw-rows: 2;
+  --jigsaw-aspect: 3 / 2;
   position: relative;
   z-index: 2;
   display: grid;
   direction: rtl;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--jigsaw-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--jigsaw-rows), minmax(0, 1fr));
   gap: 0;
   width: min(100%, 42rem);
-  aspect-ratio: 3 / 2;
+  aspect-ratio: var(--jigsaw-aspect);
   padding: var(--jigsaw-board-padding);
   border: clamp(0.35rem, 1.1vw, 0.7rem) solid #b67536;
   border-radius: 1.05rem;
@@ -1257,11 +1260,11 @@ h1 {
 
 .jigsaw-board {
   --jigsaw-board-padding: clamp(0.35rem, 1.2vw, 0.65rem);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--jigsaw-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--jigsaw-rows), minmax(0, 1fr));
   gap: 0;
   width: min(100%, 42rem);
-  aspect-ratio: 3 / 2;
+  aspect-ratio: var(--jigsaw-aspect);
   padding: var(--jigsaw-board-padding);
   border: 0.55rem solid color-mix(in srgb, var(--amber) 68%, #7a3d1a);
   border-radius: 1.2rem;
@@ -1323,7 +1326,7 @@ h1 {
     radial-gradient(circle at 80% 25%, #8f6cff 0 8%, transparent 8.5%),
     linear-gradient(160deg, #1a65d8 0 26%, #2a234f 26% 48%, #f4a640 48% 64%, #67d2ed 64% 82%, #1c8e78 82%);
   background-size: 300% 200%;
-  background-position: calc(var(--piece-col) * 50%) calc(var(--piece-row) * 100%);
+  background-position: var(--piece-x) var(--piece-y);
   filter: saturate(1.12) contrast(1.04);
 }
 
@@ -3049,8 +3052,6 @@ h1 {
   }
 
   .jigsaw-board {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
     gap: 0;
     width: min(100%, 31rem);
   }
@@ -3163,8 +3164,6 @@ h1 {
 
   .jigsaw-board {
     --jigsaw-board-padding: 0.35rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
     gap: 0;
     padding: var(--jigsaw-board-padding);
     border-width: 0.38rem;

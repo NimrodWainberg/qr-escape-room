@@ -145,29 +145,18 @@ netlify env:set ADMIN_TOKEN_SECRET "long-random-secret"
 
 ### כניסה עם קוד לאימייל
 
-המשחק תומך גם ב-OTP אמיתי דרך Netlify Functions. כדי להפעיל את זה צריך להגדיר:
+המשחק תומך ב-OTP אמיתי דרך Supabase Auth. כדי להפעיל כניסה באימייל צריך ליצור פרויקט Supabase ולהגדיר ב-Netlify:
 
 ```text
-OTP_TOKEN_SECRET
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
 ```
 
-ולשליחת אימיילים צריך להגדיר ספק אחד:
+אלו משתנים ציבוריים של צד-לקוח. אפשר למצוא אותם ב-Supabase תחת Project Settings ואז API.
 
-```text
-OTP_FROM_EMAIL
-RESEND_API_KEY
-```
+אם תבנית המייל של Supabase לא מציגה קוד מספרי, צריך לעדכן את תבנית ה-OTP כך שתכלול את `{{ .Token }}`.
 
-או:
-
-```text
-OTP_FROM_EMAIL
-SENDGRID_API_KEY
-```
-
-בלי `OTP_TOKEN_SECRET`, בקשת הקוד תיכשל עם `otp_secret_missing`.
-
-בלי אחד מהמפתחות של הדואר, הכניסה כאורח תעבוד כרגיל והאפשרות של קוד לאימייל תציג הודעת הגדרה חסרה.
+בלי שני המשתנים האלה, הכניסה כאורח תעבוד כרגיל והאפשרות של קוד לאימייל תציג הודעת הגדרה חסרה.
 
 ## פריסה ב-Netlify
 
@@ -200,9 +189,7 @@ netlify deploy --prod --dir dist --functions netlify/functions
 - `check-answer` בודק תשובת שלב.
 - `check-final` בודק את הפתרון הסופי.
 - `admin-login` ו-`admin-config` מנהלים את אזור הניהול.
-- `player-login` שומר שחקן לצורך ניקוד.
-- `request-player-otp` יוצר קוד חד-פעמי ושולח אותו באימייל אם הוגדר ספק.
-- `verify-player-otp` מאמת את הקוד ויוצר session לשחקן.
+- `player-login` שומר שחקן לצורך ניקוד אחרי כניסה כאורח או אחרי אימות אימייל ב-Supabase.
 - `leaderboard` מחזיר לוח תוצאות ציבורי.
 - `admin-analytics` מחזיר נתוני שימוש לאדמין.
 
@@ -231,8 +218,6 @@ netlify deploy --prod --dir dist --functions netlify/functions
 │       ├── game-store.js
 │       ├── leaderboard.js
 │       ├── player-login.js
-│       ├── request-player-otp.js
-│       ├── verify-player-otp.js
 │       └── public-config.js
 ├── public/
 │   └── _redirects
