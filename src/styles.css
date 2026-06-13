@@ -1241,7 +1241,7 @@ h1 {
   position: relative;
   z-index: 2;
   display: grid;
-  direction: rtl;
+  direction: ltr;
   grid-template-columns: repeat(var(--jigsaw-columns), minmax(0, 1fr));
   grid-template-rows: repeat(var(--jigsaw-rows), minmax(0, 1fr));
   gap: 0;
@@ -1613,9 +1613,9 @@ h1 {
 
 .jigsaw-piece-number {
   z-index: 4;
-  inset-block-start: 0.45rem;
-  inset-inline-end: 0.45rem;
-  inset-inline-start: auto;
+  inset-block-start: 0.75rem;
+  left: 0.75rem;
+  right: auto;
   width: 1.75rem;
   background: rgb(255 255 255 / 86%);
 }

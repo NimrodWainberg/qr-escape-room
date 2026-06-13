@@ -1174,6 +1174,8 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
                   "--piece-row": row,
                   "--piece-x": puzzleLayout.columns > 1 ? `${(col / (puzzleLayout.columns - 1)) * 100}%` : "50%",
                   "--piece-y": puzzleLayout.rows > 1 ? `${(row / (puzzleLayout.rows - 1)) * 100}%` : "50%",
+                  gridColumn: col + 1,
+                  gridRow: row + 1,
                 }}
                 disabled={!challenge || !unlockedChallenge}
                 onClick={() => challenge && onNavigate(challenge.path)}
