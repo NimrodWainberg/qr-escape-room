@@ -2214,6 +2214,10 @@ function FinalPage({
 
   return (
     <section className={`play-panel final-panel ${result === "error" ? "shake" : ""}`}>
+      <button className="final-back-button" type="button" onClick={() => onNavigate("/")} aria-label="חזרה לשלבים">
+        <Home aria-hidden="true" />
+      </button>
+
       <div className="panel-header">
         <span className="round-badge">
           <Trophy aria-hidden="true" />
@@ -2237,10 +2241,12 @@ function FinalPage({
       </div>
 
       <form className="code-form" onSubmit={submitFinal}>
-        <label htmlFor="final-code">הקוד הסופי</label>
+        <label className="sr-only" htmlFor="final-code">
+          הקוד הסופי
+        </label>
         <input
           id="final-code"
-          className="final-input is-auto-filled"
+          className="final-input is-hidden-final-code"
           autoComplete="off"
           value={value}
           readOnly
@@ -2272,11 +2278,6 @@ function FinalPage({
           </span>
         </div>
       )}
-
-      <button className="ghost-button" type="button" onClick={() => onNavigate("/")}>
-        <Home aria-hidden="true" />
-        חזרה לשלבים
-      </button>
     </section>
   );
 }
