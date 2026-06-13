@@ -1231,9 +1231,7 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
                 }
               >
                 {challenge && <span className="jigsaw-piece-number">{challenge.id}</span>}
-                {solvedChallenge ? (
-                  <span className="jigsaw-piece-reward">{challenge.reward}</span>
-                ) : !challenge ? (
+                {solvedChallenge ? null : !challenge ? (
                   <span className="jigsaw-piece-mystery">?</span>
                 ) : (
                   <span className="jigsaw-piece-lock">
@@ -2145,19 +2143,57 @@ function FinalPage({
     () => challenges.map((challenge) => (solved[challenge.id] ? challenge.reward : "")).join(""),
     [challenges, solved],
   );
-  const [value, setValue] = useState(collectedFinalCode);
+  const finalCodeValue = useMemo(
+    () => normalizeFinalCodePart(roomConfig.finalCode) || normalizeFinalCodePart(collectedFinalCode),
+    [collectedFinalCode, roomConfig.finalCode],
+  );
+  const [value, setValue] = useState("");
+  const [typingComplete, setTypingComplete] = useState(false);
   const [result, setResult] = useState("idle");
 
   useEffect(() => {
-    setValue(collectedFinalCode);
-  }, [collectedFinalCode]);
+    setValue("");
+    setTypingComplete(false);
+    setResult("idle");
+
+    if (!finalCodeValue) {
+      setTypingComplete(true);
+      return undefined;
+    }
+
+    let nextIndex = 0;
+    let intervalId = null;
+    const startDelayId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        nextIndex += 1;
+        setValue(finalCodeValue.slice(0, nextIndex));
+
+        if (nextIndex >= finalCodeValue.length) {
+          window.clearInterval(intervalId);
+          setTypingComplete(true);
+        }
+      }, 105);
+    }, 520);
+
+    return () => {
+      window.clearTimeout(startDelayId);
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [finalCodeValue]);
 
   async function submitFinal(event) {
     event.preventDefault();
+
+    if (!typingComplete || result === "checking") {
+      return;
+    }
+
     setResult("checking");
 
     try {
-      const response = await postJson(API.checkFinal, { code: value, gameId }, playerSession.token);
+      const response = await postJson(API.checkFinal, { code: finalCodeValue, gameId }, playerSession.token);
       onPlayerUpdate(response.player);
       onLeaderboardRefresh();
 
@@ -2190,27 +2226,29 @@ function FinalPage({
 
       <p className="lead">{roomConfig.finalPrompt}</p>
 
-      <div className="code-fragments" aria-label="חלקי הקוד שנאספו">
-        {challenges.map((challenge) => (
-          <span className={solved[challenge.id] ? "fragment is-found" : "fragment"} key={challenge.id}>
-            {solved[challenge.id] ? challenge.reward : "?"}
-          </span>
-        ))}
+      <div className="final-code-reveal" aria-live="polite">
+        <span className="final-code-glow" aria-hidden="true" />
+        <Sparkles aria-hidden="true" />
+        <strong>{typingComplete ? "הקוד הורכב" : "מרכיבים את הקוד"}</strong>
+        <div className="final-typewriter" dir="rtl">
+          <span>{value || " "}</span>
+          {!typingComplete && <i aria-hidden="true" />}
+        </div>
       </div>
 
       <form className="code-form" onSubmit={submitFinal}>
-        <label htmlFor="final-code">הקוד שאספתם</label>
+        <label htmlFor="final-code">הקוד הסופי</label>
         <input
           id="final-code"
-          className="final-input"
+          className="final-input is-auto-filled"
           autoComplete="off"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="הקלידו כאן"
+          readOnly
+          placeholder="הקוד נכתב כאן..."
         />
-        <button className="primary-button" type="submit" disabled={result === "checking"}>
+        <button className="primary-button" type="submit" disabled={!typingComplete || result === "checking"}>
           {result === "checking" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Trophy aria-hidden="true" />}
-          {result === "checking" ? "פותח..." : "פתיחה"}
+          {result === "checking" ? "פותח..." : typingComplete ? "פתיחה" : "רגע..."}
         </button>
       </form>
 
