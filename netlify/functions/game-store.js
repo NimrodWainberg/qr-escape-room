@@ -133,6 +133,16 @@ function cleanString(value, fallback = "") {
   return String(value ?? fallback);
 }
 
+const ADMIN_HELP_TEXTS = new Set([
+  "אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR",
+  "אפשר לשלב תמונה עם טקסט השאלה. אם אין צורך, השאירו ריק.",
+]);
+
+function cleanPlayerText(value, fallback = "") {
+  const text = cleanString(value, fallback).trim();
+  return ADMIN_HELP_TEXTS.has(text) ? "" : text;
+}
+
 function getConfigKey(gameId = DEFAULT_GAME_ID) {
   const id = normalizeGameId(gameId);
   return id === DEFAULT_GAME_ID ? CONFIG_KEY : `${CONFIG_KEY_PREFIX}${id}`;
@@ -235,7 +245,7 @@ function sanitizeChallenge(challenge, index) {
     id,
     path: cleanString(challenge?.path, `/q/${id}`) || `/q/${id}`,
     title: cleanString(challenge?.title, `קוד ${id}`) || `קוד ${id}`,
-    question: cleanString(challenge?.question),
+    question: cleanPlayerText(challenge?.question),
     questionImageUrl: cleanString(challenge?.questionImageUrl),
     answerType,
     answerInputMode: cleanAnswerInputMode(challenge?.answerInputMode),

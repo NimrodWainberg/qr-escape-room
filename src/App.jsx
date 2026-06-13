@@ -159,6 +159,16 @@ function getEditableText(value, fallback) {
   return text || fallback;
 }
 
+const ADMIN_HELP_TEXTS = new Set([
+  "אפשר להשאיר ריק אם השאלה מודפסת ליד ה-QR",
+  "אפשר לשלב תמונה עם טקסט השאלה. אם אין צורך, השאירו ריק.",
+]);
+
+function getPlayerQuestionText(value) {
+  const text = String(value ?? "").trim();
+  return ADMIN_HELP_TEXTS.has(text) ? "" : text;
+}
+
 function getAnswerLabel(challenge, roomConfig, fallback = "הכניסו את הקוד") {
   return getEditableText(challenge.answerLabel, getEditableText(roomConfig.defaultAnswerLabel, fallback));
 }
@@ -1168,13 +1178,29 @@ const JIGSAW_TAB_DEPTH = 32;
 
 function getJigsawLayout(questionCount) {
   const targetSlots = Math.max(6, Number(questionCount) + 1);
-  const columns = Math.max(3, Math.ceil(Math.sqrt(targetSlots)));
-  const rows = Math.max(2, Math.ceil(targetSlots / columns));
+  const minColumns = Math.max(3, Math.ceil(Math.sqrt(targetSlots)));
+  const maxColumns = Math.max(minColumns, Math.min(targetSlots, 6));
+  let bestLayout = null;
+
+  for (let columns = minColumns; columns <= maxColumns; columns += 1) {
+    const rows = Math.max(2, Math.ceil(targetSlots / columns));
+    const slotCount = columns * rows;
+    const ratio = columns / rows;
+    const emptySlots = slotCount - targetSlots;
+    const score = Math.abs(ratio - 1.65) + emptySlots * 0.18 + (rows > columns ? 0.9 : 0);
+
+    if (!bestLayout || score < bestLayout.score) {
+      bestLayout = { columns, rows, slotCount, score };
+    }
+  }
+
+  const columns = bestLayout.columns;
+  const rows = bestLayout.rows;
 
   return {
     columns,
     rows,
-    slotCount: columns * rows,
+    slotCount: bestLayout.slotCount,
     width: columns * JIGSAW_CELL_SIZE,
     height: rows * JIGSAW_CELL_SIZE,
   };
@@ -1715,6 +1741,7 @@ function ChallengePage({
   const isChoiceQuestion = challenge.answerType === "choice";
   const numericOnly = Boolean(challenge.numericOnly);
   const answerLabel = getAnswerLabel(challenge, roomConfig);
+  const questionText = getPlayerQuestionText(challenge.question);
 
   useEffect(() => {
     setValue("");
@@ -1769,13 +1796,10 @@ function ChallengePage({
             <img src={challenge.questionImageUrl} alt="" />
           </figure>
         )}
-        {challenge.question ? (
-          <p>{challenge.question}</p>
+        {questionText ? (
+          <p>{questionText}</p>
         ) : (
-          <>
-            <p>השאלה לשלב הזה יכולה להיות מודפסת ליד ה-QR.</p>
-            <p className="muted">אם תרצה, אפשר להוסיף כאן גם את השאלה עצמה בהמשך.</p>
-          </>
+          <p className="muted">הכניסו את הקוד כדי להמשיך.</p>
         )}
       </div>
 
