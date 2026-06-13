@@ -894,18 +894,20 @@ function HomePage({
         </div>
       )}
 
-      <div className="status-strip" aria-label="התקדמות">
-        <div>
-          <strong>
-            {solvedCount}/{challenges.length}
-          </strong>
-          <span>קודים נפתרו</span>
+      {!usePuzzleMode && (
+        <div className="status-strip" aria-label="התקדמות">
+          <div>
+            <strong>
+              {solvedCount}/{challenges.length}
+            </strong>
+            <span>קודים נפתרו</span>
+          </div>
+          <button className="ghost-button" type="button" onClick={onReset}>
+            <RefreshCcw aria-hidden="true" />
+            איפוס
+          </button>
         </div>
-        <button className="ghost-button" type="button" onClick={onReset}>
-          <RefreshCcw aria-hidden="true" />
-          איפוס
-        </button>
-      </div>
+      )}
 
       {usePuzzleMode && (
         <PuzzleProgress
@@ -915,6 +917,7 @@ function HomePage({
           solved={solved}
           finalUnlocked={finalUnlocked}
           onNavigate={onNavigate}
+          onReset={onReset}
         />
       )}
 
@@ -969,7 +972,7 @@ function HomePage({
   );
 }
 
-function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, finalUnlocked, onNavigate }) {
+function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, finalUnlocked, onNavigate, onReset }) {
   const solvedCount = challenges.filter((challenge) => isChallengeSolved(challenge, solved)).length;
   const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
     ? roomConfig.puzzleTheme
@@ -995,6 +998,7 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
             "--jigsaw-columns": puzzleLayout.columns,
             "--jigsaw-rows": puzzleLayout.rows,
             "--jigsaw-aspect": `${puzzleLayout.columns} / ${puzzleLayout.rows}`,
+            "--jigsaw-ratio": puzzleLayout.columns / puzzleLayout.rows,
           }}
         >
           <JigsawBoardPicture
@@ -1062,10 +1066,16 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
       </div>
 
       <div className="puzzle-footer">
-        <strong>
-          {solvedCount}/{challenges.length}
-        </strong>
-        <span>{finalUnlocked ? "התמונה נפתחה במלואה" : "חלקים נחשפו"}</span>
+        <div>
+          <strong>
+            {solvedCount}/{challenges.length}
+          </strong>
+          <span>{finalUnlocked ? "התמונה נפתחה במלואה" : "חלקים נחשפו"}</span>
+        </div>
+        <button className="ghost-button" type="button" onClick={onReset}>
+          <RefreshCcw aria-hidden="true" />
+          איפוס
+        </button>
         {finalUnlocked && (
           <button className="primary-button puzzle-final-button" type="button" onClick={() => onNavigate("/final")}>
             <Trophy aria-hidden="true" />

@@ -495,8 +495,49 @@ h1 {
 }
 
 .hero-section.is-puzzle-mode {
-  gap: clamp(0.65rem, 1.6vw, 1.1rem);
-  padding-block-start: clamp(1rem, 3vw, 2rem);
+  gap: clamp(0.3rem, 0.75vw, 0.55rem);
+  min-height: calc(100vh - 7.5rem);
+  padding: clamp(0.55rem, 1.25vw, 0.95rem);
+}
+
+.hero-section.is-puzzle-mode .hero-copy {
+  max-width: 100%;
+}
+
+.hero-section.is-puzzle-mode .hero-copy .eyebrow {
+  margin-block-end: 0.08rem;
+  font-size: 0.78rem;
+}
+
+.hero-section.is-puzzle-mode .hero-copy h1 {
+  max-width: min(100%, 44rem);
+  font-size: clamp(1.55rem, 3.55vw, 3.05rem);
+  line-height: 0.94;
+}
+
+.hero-section.is-puzzle-mode .hero-copy p:last-child {
+  margin-block-start: 0.22rem;
+  font-size: clamp(0.85rem, 1.25vw, 1rem);
+}
+
+.hero-section.is-puzzle-mode .player-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.55rem;
+  padding-inline: 0.75rem;
+}
+
+.hero-section.is-puzzle-mode .player-status span {
+  display: none;
+}
+
+.hero-section.is-puzzle-mode .player-status .primary-button {
+  width: auto;
+  min-height: 2.45rem;
+  padding-block: 0.45rem;
+  padding-inline: 0.85rem;
 }
 
 .leaderboard-panel {
@@ -706,26 +747,32 @@ h1 {
 .is-puzzle-mode .puzzle-progress {
   grid-template-columns: 1fr;
   align-items: stretch;
-  gap: clamp(0.65rem, 1.6vw, 1rem);
-  padding: clamp(0.75rem, 1.8vw, 1.15rem);
+  gap: clamp(0.45rem, 1.1vw, 0.75rem);
+  padding: clamp(0.55rem, 1.25vw, 0.9rem);
 }
 
 .is-puzzle-mode .puzzle-copy {
+  display: none;
   max-width: 46rem;
   order: 2;
 }
 
 .is-puzzle-mode .puzzle-copy h2 {
-  font-size: clamp(1.35rem, 3vw, 2.4rem);
+  font-size: clamp(1.05rem, 2vw, 1.65rem);
+}
+
+.is-puzzle-mode .puzzle-copy .eyebrow,
+.is-puzzle-mode .puzzle-copy p:last-child {
+  font-size: 0.82rem;
 }
 
 .is-puzzle-mode .puzzle-stage {
   order: 1;
-  min-height: clamp(26rem, 56vw, 43rem);
+  min-height: clamp(17rem, calc(100vh - 22.75rem), 29rem);
 }
 
 .is-puzzle-mode .jigsaw-board {
-  width: min(100%, 66rem);
+  width: min(100%, 66rem, calc((100vh - 23.75rem) * var(--jigsaw-ratio)));
 }
 
 .is-puzzle-mode .puzzle-footer {
@@ -1002,10 +1049,34 @@ h1 {
   font-weight: 900;
 }
 
+.puzzle-footer div {
+  display: grid;
+  gap: 0.05rem;
+}
+
 .puzzle-footer strong {
   color: var(--text);
   font-size: 1.35rem;
   unicode-bidi: isolate;
+}
+
+.is-puzzle-mode .puzzle-footer {
+  gap: 0.65rem;
+  padding-block-start: 0;
+}
+
+.is-puzzle-mode .puzzle-footer strong {
+  font-size: 1.05rem;
+}
+
+.is-puzzle-mode .puzzle-footer span {
+  font-size: 0.82rem;
+}
+
+.is-puzzle-mode .puzzle-footer .ghost-button {
+  min-height: 2.45rem;
+  padding-block: 0.45rem;
+  padding-inline: 0.7rem;
 }
 
 .puzzle-final-button {
@@ -3078,11 +3149,11 @@ h1 {
   }
 
   .is-puzzle-mode .puzzle-stage {
-    min-height: clamp(20rem, 68vw, 32rem);
+    min-height: clamp(15rem, calc(100vh - 15rem), 27rem);
   }
 
   .is-puzzle-mode .jigsaw-board {
-    width: min(100%, 42rem);
+    width: min(100%, 42rem, calc((100vh - 16rem) * var(--jigsaw-ratio)));
   }
 }
 
@@ -3191,15 +3262,15 @@ h1 {
   }
 
   .is-puzzle-mode .puzzle-progress {
-    padding: 0.8rem;
+    padding: 0.55rem;
   }
 
   .is-puzzle-mode .puzzle-stage {
-    min-height: clamp(16.5rem, 76vw, 22rem);
+    min-height: clamp(12rem, calc(100svh - 13.5rem), 19rem);
   }
 
   .is-puzzle-mode .jigsaw-board {
-    width: 100%;
+    width: min(100%, calc((100svh - 14rem) * var(--jigsaw-ratio)));
   }
 
   .jigsaw-piece-number {
