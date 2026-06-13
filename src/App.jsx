@@ -883,12 +883,7 @@ function HomePage({
         )}
       </div>
 
-      {playerSession ? (
-        <div className="player-status">
-          <strong>שלום {playerSession.player.name}</strong>
-          <span>הניקוד והזמנים שלך נשמרים לדירוג.</span>
-        </div>
-      ) : (
+      {!playerSession && (
         <div className="player-status">
           <strong>עדיין לא נכנסתם למשחק</strong>
           <span>אפשר להתחיל כאורח עם שם בלבד.</span>
@@ -984,12 +979,6 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
 
   return (
     <section className={`puzzle-progress puzzle-${theme} ${finalUnlocked ? "is-complete" : ""}`} aria-label="פאזל התקדמות">
-      <div className="puzzle-copy">
-        <p className="eyebrow">פאזל התקדמות</p>
-        <h2>{getEditableText(roomConfig.puzzleTitle, "מפת הבריחה")}</h2>
-        <p>{getEditableText(roomConfig.puzzleSubtitle, "כל קוד נכון חושף חלק נוסף בתמונה.")}</p>
-      </div>
-
       <div className="puzzle-stage jigsaw-stage">
         <div className="puzzle-scene" aria-hidden="true">
           <span className="puzzle-sun" />
@@ -1064,6 +1053,12 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
         <div className="puzzle-meter" aria-hidden="true">
           <span style={{ inlineSize: `${challenges.length ? (solvedCount / challenges.length) * 100 : 0}%` }} />
         </div>
+      </div>
+
+      <div className="puzzle-copy">
+        <p className="eyebrow">פאזל התקדמות</p>
+        <h2>{getEditableText(roomConfig.puzzleTitle, "מפת הבריחה")}</h2>
+        <p>{getEditableText(roomConfig.puzzleSubtitle, "כל קוד נכון חושף חלק נוסף בתמונה.")}</p>
       </div>
 
       <div className="puzzle-footer">
@@ -2851,7 +2846,7 @@ function AdminGameForm({
           type="button"
           onClick={() => setSection("main")}
         >
-          הגדרות
+          עיקרי
         </button>
         <button
           aria-selected={section === "levels"}
@@ -2862,215 +2857,191 @@ function AdminGameForm({
         >
           שלבים
         </button>
+        <button
+          aria-selected={section === "advanced"}
+          className={section === "advanced" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setSection("advanced")}
+        >
+          מתקדם
+        </button>
       </div>
 
       {section === "main" && (
-        <>
-          <AdminCollapsibleSection title="הגדרות כלליות" meta="שם, טקסט פתיחה, ניקוד ותשובות ברירת מחדל" defaultOpen>
-        <label>
-          שם המשחק
-          <input
-            className="admin-input"
-            value={config.roomConfig.title}
-            onChange={(event) => onUpdateRoomConfig("title", event.target.value)}
-          />
-        </label>
-        <label>
-          טקסט פתיחה
-          <textarea
-            className="admin-textarea"
-            value={config.roomConfig.subtitle}
-            onChange={(event) => onUpdateRoomConfig("subtitle", event.target.value)}
-          />
-        </label>
-        <label>
-          טקסט לפני הקוד הסופי
-          <textarea
-            className="admin-textarea"
-            value={config.roomConfig.finalPrompt}
-            onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)}
-          />
-        </label>
-        <label>
-          טקסט ברירת מחדל לפני שדה תשובה
-          <input
-            className="admin-input"
-            value={config.roomConfig.defaultAnswerLabel ?? "הכניסו את הקוד"}
-            onChange={(event) => onUpdateRoomConfig("defaultAnswerLabel", event.target.value)}
-            placeholder="הכניסו את הקוד"
-          />
-        </label>
-        <div className="admin-inline-fields">
+        <div className="admin-editor-panel">
           <label>
-            ניקוד ברירת מחדל לכל שאלה
-            <input
-              className="admin-input"
-              type="number"
-              min="0"
-              step="1"
-              value={config.roomConfig.questionPoints}
-              onChange={(event) => onUpdateRoomConfig("questionPoints", event.target.value)}
-            />
+            שם המשחק
+            <input className="admin-input" value={config.roomConfig.title} onChange={(event) => onUpdateRoomConfig("title", event.target.value)} />
           </label>
           <label>
-            הורדה על טעות ברירת מחדל
-            <input
-              className="admin-input"
-              type="number"
-              min="0"
-              step="1"
-              value={config.roomConfig.wrongAnswerPenalty}
-              onChange={(event) => onUpdateRoomConfig("wrongAnswerPenalty", event.target.value)}
-            />
-          </label>
-        </div>
-        <div className="admin-inline-fields">
-          <label>
-            בונוס לקוד הסופי
-            <input
-              className="admin-input"
-              type="number"
-              min="0"
-              step="1"
-              value={config.roomConfig.finalBonusPoints}
-              onChange={(event) => onUpdateRoomConfig("finalBonusPoints", event.target.value)}
-            />
-          </label>
-          <span className="admin-help-text">אם שאלה לא מגדירה ניקוד משלה, היא תשתמש בערכי ברירת המחדל.</span>
-        </div>
-        <div className="admin-inline-fields">
-          <label>
-            הודעת הצלחה ברירת מחדל
+            טקסט פתיחה
             <textarea
               className="admin-textarea compact-textarea"
-              value={config.roomConfig.defaultSuccessMessage}
-              onChange={(event) => onUpdateRoomConfig("defaultSuccessMessage", event.target.value)}
-              placeholder="תופיע אם לשלב אין הודעת הצלחה משלו"
+              value={config.roomConfig.subtitle}
+              onChange={(event) => onUpdateRoomConfig("subtitle", event.target.value)}
+              placeholder="טקסט קצר שמופיע מתחת לכותרת"
             />
           </label>
           <label>
-            הודעת שגיאה ברירת מחדל
-            <textarea
-              className="admin-textarea compact-textarea"
-              value={config.roomConfig.defaultErrorMessage}
-              onChange={(event) => onUpdateRoomConfig("defaultErrorMessage", event.target.value)}
-              placeholder="תופיע אם לשלב אין הודעת שגיאה משלו"
-            />
+            תשובה לשלב הסופי
+            <input className="admin-input" value={config.roomConfig.finalCode} onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)} dir="auto" />
           </label>
-        </div>
-        <label>
-          פתרון סופי
-          <input
-            className="admin-input"
-            value={config.roomConfig.finalCode}
-            onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)}
-            dir="auto"
-          />
-        </label>
-        <label>
-          הודעת שגיאה בקוד הסופי
-          <textarea
-            className="admin-textarea compact-textarea"
-            value={config.roomConfig.finalErrorMessage}
-            onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)}
-          />
-        </label>
-          </AdminCollapsibleSection>
 
-          <AdminCollapsibleSection title="פאזל" meta={puzzleEnabled ? "פעיל במסך הבית" : "כבוי"}>
-        <label className="switch-setting">
-          <span>
-            <strong>הצגת פאזל במשחק</strong>
-            <small>כל שלב שנפתר חושף חלק נוסף בפאזל במסך הבית.</small>
-          </span>
-          <input
-            type="checkbox"
-            checked={config.roomConfig.puzzleMode === "reveal"}
-            onChange={(event) => onUpdateRoomConfig("puzzleMode", event.target.checked ? "reveal" : "off")}
-          />
-          <span className="switch-track" aria-hidden="true">
-            <span className="switch-thumb" />
-          </span>
-        </label>
-        {puzzleEnabled ? (
-          <>
-            <div className="admin-inline-fields">
+          <label className="switch-setting">
+            <span>
+              <strong>הצגת פאזל במשחק</strong>
+              <small>כל שלב שנפתר חושף חלק נוסף בפאזל במסך הבית.</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={config.roomConfig.puzzleMode === "reveal"}
+              onChange={(event) => onUpdateRoomConfig("puzzleMode", event.target.checked ? "reveal" : "off")}
+            />
+            <span className="switch-track" aria-hidden="true">
+              <span className="switch-thumb" />
+            </span>
+          </label>
+
+          {puzzleEnabled && (
+            <div className="nested-section">
+              <AdminImageField
+                label="תמונת פאזל"
+                value={config.roomConfig.puzzleImageUrl ?? ""}
+                onChange={(value) => onUpdateRoomConfig("puzzleImageUrl", value)}
+                help="אם מעלים תמונה, היא תחליף את ציור ברירת המחדל ותישמר עם המשחק הזה."
+              />
               <label>
-                כותרת הפאזל
-                <input
-                  className="admin-input"
-                  value={config.roomConfig.puzzleTitle ?? ""}
-                  onChange={(event) => onUpdateRoomConfig("puzzleTitle", event.target.value)}
-                  placeholder="מפת הבריחה"
-                />
-              </label>
-              <label>
-                סגנון
-                <select
-                  className="admin-input"
-                  value={config.roomConfig.puzzleTheme ?? "vacation"}
-                  onChange={(event) => onUpdateRoomConfig("puzzleTheme", event.target.value)}
-                >
+                סגנון ברירת מחדל
+                <select className="admin-input" value={config.roomConfig.puzzleTheme ?? "vacation"} onChange={(event) => onUpdateRoomConfig("puzzleTheme", event.target.value)}>
                   <option value="vacation">חופשה</option>
                   <option value="treasure">אוצר</option>
                   <option value="space">חלל</option>
                 </select>
               </label>
+              <AdminCollapsibleSection title="אפשרויות פאזל" meta="כותרת וטקסט עזר">
+                <label>
+                  כותרת הפאזל
+                  <input
+                    className="admin-input"
+                    value={config.roomConfig.puzzleTitle ?? ""}
+                    onChange={(event) => onUpdateRoomConfig("puzzleTitle", event.target.value)}
+                    placeholder="מפת הבריחה"
+                  />
+                </label>
+                <label>
+                  טקסט קצר מתחת לכותרת
+                  <textarea
+                    className="admin-textarea compact-textarea"
+                    value={config.roomConfig.puzzleSubtitle ?? ""}
+                    onChange={(event) => onUpdateRoomConfig("puzzleSubtitle", event.target.value)}
+                    placeholder="כל קוד נכון חושף חלק נוסף בתמונה."
+                  />
+                </label>
+              </AdminCollapsibleSection>
             </div>
+          )}
+        </div>
+      )}
+
+      {section === "advanced" && (
+        <>
+          <AdminCollapsibleSection title="ברירות מחדל לשאלות" meta="תווית, ניקוד והודעות fallback" defaultOpen>
             <label>
-              טקסט קצר מתחת לכותרת
-              <textarea
-                className="admin-textarea compact-textarea"
-                value={config.roomConfig.puzzleSubtitle ?? ""}
-                onChange={(event) => onUpdateRoomConfig("puzzleSubtitle", event.target.value)}
-                placeholder="כל קוד נכון חושף חלק נוסף בתמונה."
+              טקסט ברירת מחדל לפני שדה תשובה
+              <input
+                className="admin-input"
+                value={config.roomConfig.defaultAnswerLabel ?? "הכניסו את הקוד"}
+                onChange={(event) => onUpdateRoomConfig("defaultAnswerLabel", event.target.value)}
+                placeholder="הכניסו את הקוד"
               />
             </label>
-            <AdminImageField
-              label="תמונת פאזל מותאמת"
-              value={config.roomConfig.puzzleImageUrl ?? ""}
-              onChange={(value) => onUpdateRoomConfig("puzzleImageUrl", value)}
-              help="אם מעלים תמונה, היא תחליף את ציור ברירת המחדל ותישמר עם המשחק הזה."
-            />
-          </>
-        ) : (
-          <p className="admin-help-text">הפעילו את הפאזל כדי לערוך כותרת, סגנון ותמונה.</p>
-        )}
+            <div className="admin-inline-fields">
+              <label>
+                ניקוד ברירת מחדל לכל שאלה
+                <input
+                  className="admin-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={config.roomConfig.questionPoints}
+                  onChange={(event) => onUpdateRoomConfig("questionPoints", event.target.value)}
+                />
+              </label>
+              <label>
+                הורדה על טעות ברירת מחדל
+                <input
+                  className="admin-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={config.roomConfig.wrongAnswerPenalty}
+                  onChange={(event) => onUpdateRoomConfig("wrongAnswerPenalty", event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="admin-inline-fields">
+              <label>
+                הודעת הצלחה ברירת מחדל
+                <textarea
+                  className="admin-textarea compact-textarea"
+                  value={config.roomConfig.defaultSuccessMessage}
+                  onChange={(event) => onUpdateRoomConfig("defaultSuccessMessage", event.target.value)}
+                  placeholder="תופיע אם לשלב אין הודעת הצלחה משלו"
+                />
+              </label>
+              <label>
+                הודעת שגיאה ברירת מחדל
+                <textarea
+                  className="admin-textarea compact-textarea"
+                  value={config.roomConfig.defaultErrorMessage}
+                  onChange={(event) => onUpdateRoomConfig("defaultErrorMessage", event.target.value)}
+                  placeholder="תופיע אם לשלב אין הודעת שגיאה משלו"
+                />
+              </label>
+            </div>
           </AdminCollapsibleSection>
 
-          <AdminCollapsibleSection title="מסך סיום" meta="הטקסטים שמופיעים אחרי הקוד הסופי">
-        <label>
-          כותרת קטנה
-          <input
-            className="admin-input"
-            value={config.roomConfig.finalSuccessEyebrow}
-            onChange={(event) => onUpdateRoomConfig("finalSuccessEyebrow", event.target.value)}
-          />
-        </label>
-        <label>
-          כותרת גדולה
-          <input
-            className="admin-input"
-            value={config.roomConfig.finalSuccessTitle}
-            onChange={(event) => onUpdateRoomConfig("finalSuccessTitle", event.target.value)}
-          />
-        </label>
-        <label>
-          הודעה במסך הסיום
-          <textarea
-            className="admin-textarea compact-textarea"
-            value={config.roomConfig.finalSuccessMessage}
-            onChange={(event) => onUpdateRoomConfig("finalSuccessMessage", event.target.value)}
-          />
-        </label>
-        <label>
-          טקסט כפתור במסך הסיום
-          <input
-            className="admin-input"
-            value={config.roomConfig.finalSuccessButtonLabel}
-            onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)}
-          />
-        </label>
+          <AdminCollapsibleSection title="קוד סופי ומסך סיום" meta="טקסטים וניקוד סיום">
+            <label>
+              טקסט לפני הקוד הסופי
+              <textarea className="admin-textarea" value={config.roomConfig.finalPrompt} onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)} />
+            </label>
+            <div className="admin-inline-fields">
+              <label>
+                בונוס לקוד הסופי
+                <input
+                  className="admin-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={config.roomConfig.finalBonusPoints}
+                  onChange={(event) => onUpdateRoomConfig("finalBonusPoints", event.target.value)}
+                />
+              </label>
+              <label>
+                הודעת שגיאה בקוד הסופי
+                <textarea className="admin-textarea compact-textarea" value={config.roomConfig.finalErrorMessage} onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)} />
+              </label>
+            </div>
+            <div className="admin-inline-fields">
+              <label>
+                כותרת קטנה במסך הסיום
+                <input className="admin-input" value={config.roomConfig.finalSuccessEyebrow} onChange={(event) => onUpdateRoomConfig("finalSuccessEyebrow", event.target.value)} />
+              </label>
+              <label>
+                כותרת גדולה במסך הסיום
+                <input className="admin-input" value={config.roomConfig.finalSuccessTitle} onChange={(event) => onUpdateRoomConfig("finalSuccessTitle", event.target.value)} />
+              </label>
+            </div>
+            <label>
+              הודעה במסך הסיום
+              <textarea className="admin-textarea compact-textarea" value={config.roomConfig.finalSuccessMessage} onChange={(event) => onUpdateRoomConfig("finalSuccessMessage", event.target.value)} />
+            </label>
+            <label>
+              טקסט כפתור במסך הסיום
+              <input className="admin-input" value={config.roomConfig.finalSuccessButtonLabel} onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)} />
+            </label>
           </AdminCollapsibleSection>
         </>
       )}
@@ -3129,7 +3100,7 @@ function AdminGameForm({
                 onChange={(value) => onUpdateChallenge(index, "questionImageUrl", value)}
                 help="אפשר לשלב תמונה עם טקסט השאלה. אם אין צורך, השאירו ריק."
               />
-              <div className="admin-inline-fields">
+              <div className="admin-inline-fields one-field">
                 <label>
                   סוג תשובה
                   <select
@@ -3140,48 +3111,6 @@ function AdminGameForm({
                     <option value="open">שדות פתוחים</option>
                     <option value="choice">שאלה אמריקאית</option>
                   </select>
-                </label>
-                <label>
-                  סוג הקלדה
-                  <select
-                    className="admin-input"
-                    value={challenge.answerInputMode ?? "auto"}
-                    onChange={(event) => onUpdateChallenge(index, "answerInputMode", event.target.value)}
-                    disabled={(challenge.answerType ?? "open") === "choice"}
-                  >
-                    <option value="auto">אוטומטי לפי התשובה</option>
-                    <option value="numeric">מספרים בלבד</option>
-                    <option value="text">טקסט חופשי</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                טקסט לפני שדה התשובה
-                <input
-                  className="admin-input"
-                  value={challenge.answerLabel ?? ""}
-                  onChange={(event) => onUpdateChallenge(index, "answerLabel", event.target.value)}
-                  placeholder="ריק = ברירת מחדל כללית"
-                />
-              </label>
-              <div className="admin-inline-fields">
-                <label>
-                  הודעת הצלחה לשלב
-                  <textarea
-                    className="admin-textarea compact-textarea"
-                    value={challenge.successMessage}
-                    onChange={(event) => onUpdateChallenge(index, "successMessage", event.target.value)}
-                    placeholder="ריק = הודעת הצלחה ברירת מחדל"
-                  />
-                </label>
-                <label>
-                  הודעת שגיאה לשלב
-                  <textarea
-                    className="admin-textarea compact-textarea"
-                    value={challenge.errorMessage}
-                    onChange={(event) => onUpdateChallenge(index, "errorMessage", event.target.value)}
-                    placeholder="ריק = הודעת שגיאה ברירת מחדל"
-                  />
                 </label>
               </div>
               {(challenge.answerType ?? "open") === "choice" ? (
@@ -3288,32 +3217,78 @@ function AdminGameForm({
                   dir="auto"
                 />
               </label>
-              <div className="admin-inline-fields">
-                <label>
-                  ניקוד לשלב
-                  <input
-                    className="admin-input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={challenge.points}
-                    onChange={(event) => onUpdateChallenge(index, "points", event.target.value)}
-                    placeholder={`ברירת מחדל: ${config.roomConfig.questionPoints}`}
-                  />
-                </label>
-                <label>
-                  הורדה על כל טעות
-                  <input
-                    className="admin-input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={challenge.wrongAnswerPenalty}
-                    onChange={(event) => onUpdateChallenge(index, "wrongAnswerPenalty", event.target.value)}
-                    placeholder={`ברירת מחדל: ${config.roomConfig.wrongAnswerPenalty}`}
-                  />
-                </label>
-              </div>
+              <AdminCollapsibleSection title="אפשרויות מתקדמות לשלב" meta="ניקוד, הודעות וסוג הקלדה">
+                <div className="admin-inline-fields">
+                  <label>
+                    סוג הקלדה
+                    <select
+                      className="admin-input"
+                      value={challenge.answerInputMode ?? "auto"}
+                      onChange={(event) => onUpdateChallenge(index, "answerInputMode", event.target.value)}
+                      disabled={(challenge.answerType ?? "open") === "choice"}
+                    >
+                      <option value="auto">אוטומטי לפי התשובה</option>
+                      <option value="numeric">מספרים בלבד</option>
+                      <option value="text">טקסט חופשי</option>
+                    </select>
+                  </label>
+                  <label>
+                    טקסט לפני שדה התשובה
+                    <input
+                      className="admin-input"
+                      value={challenge.answerLabel ?? ""}
+                      onChange={(event) => onUpdateChallenge(index, "answerLabel", event.target.value)}
+                      placeholder="ריק = ברירת מחדל כללית"
+                    />
+                  </label>
+                </div>
+                <div className="admin-inline-fields">
+                  <label>
+                    הודעת הצלחה לשלב
+                    <textarea
+                      className="admin-textarea compact-textarea"
+                      value={challenge.successMessage}
+                      onChange={(event) => onUpdateChallenge(index, "successMessage", event.target.value)}
+                      placeholder="ריק = הודעת הצלחה ברירת מחדל"
+                    />
+                  </label>
+                  <label>
+                    הודעת שגיאה לשלב
+                    <textarea
+                      className="admin-textarea compact-textarea"
+                      value={challenge.errorMessage}
+                      onChange={(event) => onUpdateChallenge(index, "errorMessage", event.target.value)}
+                      placeholder="ריק = הודעת שגיאה ברירת מחדל"
+                    />
+                  </label>
+                </div>
+                <div className="admin-inline-fields">
+                  <label>
+                    ניקוד לשלב
+                    <input
+                      className="admin-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={challenge.points}
+                      onChange={(event) => onUpdateChallenge(index, "points", event.target.value)}
+                      placeholder={`ברירת מחדל: ${config.roomConfig.questionPoints}`}
+                    />
+                  </label>
+                  <label>
+                    הורדה על כל טעות
+                    <input
+                      className="admin-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={challenge.wrongAnswerPenalty}
+                      onChange={(event) => onUpdateChallenge(index, "wrongAnswerPenalty", event.target.value)}
+                      placeholder={`ברירת מחדל: ${config.roomConfig.wrongAnswerPenalty}`}
+                    />
+                  </label>
+                </div>
+              </AdminCollapsibleSection>
             </AdminCollapsibleSection>
           ))}
         </div>
