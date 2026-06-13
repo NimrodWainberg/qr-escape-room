@@ -1113,7 +1113,15 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
     ? roomConfig.puzzleTheme
     : "vacation";
   const useSquareMobilePuzzle = useMediaQuery("(max-width: 560px)");
-  const puzzleLayout = getJigsawLayout(challenges.length, useSquareMobilePuzzle ? 1.05 : 1.65);
+  const targetPuzzleSlots = Math.max(6, challenges.length + 1);
+  const puzzleLayout = getJigsawLayout(
+    challenges.length,
+    useSquareMobilePuzzle ? (targetPuzzleSlots <= 6 ? 0.72 : 1.05) : 1.65,
+    {
+      allowPortrait: useSquareMobilePuzzle && targetPuzzleSlots <= 6,
+      minColumns: useSquareMobilePuzzle && targetPuzzleSlots <= 6 ? 2 : 3,
+    },
+  );
   const puzzleSlots = Array.from({ length: puzzleLayout.slotCount }, (_, index) => challenges[index] ?? null);
 
   return (
@@ -1257,9 +1265,9 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
 const JIGSAW_CELL_SIZE = 100;
 const JIGSAW_TAB_DEPTH = 32;
 
-function getJigsawLayout(questionCount, preferredRatio = 1.65) {
+function getJigsawLayout(questionCount, preferredRatio = 1.65, options = {}) {
   const targetSlots = Math.max(6, Number(questionCount) + 1);
-  const minColumns = Math.max(3, Math.ceil(Math.sqrt(targetSlots)));
+  const minColumns = options.minColumns ?? Math.max(3, Math.ceil(Math.sqrt(targetSlots)));
   const maxColumns = Math.max(minColumns, Math.min(targetSlots, 6));
   let bestLayout = null;
 
@@ -1268,7 +1276,8 @@ function getJigsawLayout(questionCount, preferredRatio = 1.65) {
     const slotCount = columns * rows;
     const ratio = columns / rows;
     const emptySlots = slotCount - targetSlots;
-    const score = Math.abs(ratio - preferredRatio) + emptySlots * 0.18 + (rows > columns ? 0.9 : 0);
+    const portraitPenalty = !options.allowPortrait && rows > columns ? 0.9 : 0;
+    const score = Math.abs(ratio - preferredRatio) + emptySlots * 0.18 + portraitPenalty;
 
     if (!bestLayout || score < bestLayout.score) {
       bestLayout = { columns, rows, slotCount, score };
