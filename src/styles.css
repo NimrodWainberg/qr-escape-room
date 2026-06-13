@@ -2242,6 +2242,23 @@ h1 {
   font-weight: 800;
 }
 
+.admin-help-text.compact-help {
+  min-height: 0;
+  padding-block: 0;
+}
+
+.final-code-admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.final-code-admin-row .ghost-button {
+  min-height: 3.2rem;
+  white-space: nowrap;
+}
+
 .admin-image-field {
   display: grid;
   gap: 0.65rem;
@@ -3325,6 +3342,10 @@ h1 {
   .admin-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .final-code-admin-row {
+    grid-template-columns: 1fr;
   }
 
   .admin-tabs {

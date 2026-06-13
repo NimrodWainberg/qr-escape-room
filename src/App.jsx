@@ -2103,6 +2103,58 @@ function createBlankChallenge(challenges) {
   };
 }
 
+function splitTextIntoParts(value, count) {
+  const cleanValue = normalizeCode(value);
+
+  if (!cleanValue || count <= 0) {
+    return [];
+  }
+
+  const baseSize = Math.floor(cleanValue.length / count);
+  const remainder = cleanValue.length % count;
+  const parts = [];
+  let offset = 0;
+
+  for (let index = 0; index < count; index += 1) {
+    const size = baseSize + (index < remainder ? 1 : 0);
+    parts.push(cleanValue.slice(offset, offset + size));
+    offset += size;
+  }
+
+  return parts;
+}
+
+function applyFinalCodeRewards(config) {
+  const parts = splitTextIntoParts(config?.roomConfig?.finalCode, config?.challenges?.length ?? 0);
+
+  if (parts.length === 0) {
+    return config;
+  }
+
+  return {
+    ...config,
+    challenges: config.challenges.map((challenge, index) => ({
+      ...challenge,
+      reward: parts[index] ?? "",
+    })),
+  };
+}
+
+function getFinalCodeRewardsMessage(config) {
+  const cleanFinalCode = normalizeCode(config?.roomConfig?.finalCode);
+  const challengeCount = config?.challenges?.length ?? 0;
+
+  if (!cleanFinalCode) {
+    return "הכניסו תשובה סופית כדי לחלק אותה אוטומטית לשלבים.";
+  }
+
+  if (cleanFinalCode.length < challengeCount) {
+    return "חילקנו את הקוד, אבל הוא קצר ממספר השלבים ולכן חלק מהשלבים נשארו ריקים.";
+  }
+
+  return "חילקנו את התשובה הסופית לחלקים לפי מספר השלבים.";
+}
+
 function AdminPage({
   fallbackConfig,
   gameId,
@@ -2129,6 +2181,8 @@ function AdminPage({
   const [temporaryAdminPassword, setTemporaryAdminPassword] = useState("");
   const [status, setStatus] = useState(token ? "loading" : "idle");
   const [message, setMessage] = useState("");
+  const [finalCodeAutoFillRequest, setFinalCodeAutoFillRequest] = useState(0);
+  const [finalRewardsMessage, setFinalRewardsMessage] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -2199,6 +2253,36 @@ function AdminPage({
         [field]: value,
       },
     }));
+
+    if (field === "finalCode") {
+      setFinalRewardsMessage("נחכה 10 שניות בלי שינוי ואז נחלק את הקוד לשלבים.");
+      setFinalCodeAutoFillRequest(Date.now());
+    }
+  }
+
+  useEffect(() => {
+    if (!finalCodeAutoFillRequest) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setConfig((current) => {
+        const nextConfig = applyFinalCodeRewards(current);
+        setFinalRewardsMessage(getFinalCodeRewardsMessage(nextConfig));
+        return nextConfig;
+      });
+    }, 10000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [finalCodeAutoFillRequest]);
+
+  function fillRewardsFromFinalCodeNow() {
+    setConfig((current) => {
+      const nextConfig = applyFinalCodeRewards(current);
+      setFinalRewardsMessage(getFinalCodeRewardsMessage(nextConfig));
+      return nextConfig;
+    });
+    setFinalCodeAutoFillRequest(0);
   }
 
   function updateGlobalSetting(field, value) {
@@ -2737,6 +2821,7 @@ function AdminPage({
       {activeAdminTab === "game" && (
         <AdminGameForm
           config={config}
+          finalRewardsMessage={finalRewardsMessage}
           message={message}
           status={status}
           onAddChallenge={addChallenge}
@@ -2746,6 +2831,7 @@ function AdminPage({
           onRemoveAnswerField={removeChallengeAnswerField}
           onRemoveChoiceOption={removeChoiceOption}
           onSaveConfig={saveConfig}
+          onSplitFinalCodeRewards={fillRewardsFromFinalCodeNow}
           onUpdateAnswerField={updateChallengeAnswerField}
           onUpdateChallenge={updateChallenge}
           onUpdateChoiceOption={updateChoiceOption}
@@ -2905,6 +2991,7 @@ function AdminCollapsibleSection({ title, meta, defaultOpen = false, children, c
 
 function AdminGameForm({
   config,
+  finalRewardsMessage,
   message,
   status,
   onAddAnswerField,
@@ -2914,6 +3001,7 @@ function AdminGameForm({
   onRemoveChallenge,
   onRemoveChoiceOption,
   onSaveConfig,
+  onSplitFinalCodeRewards,
   onUpdateAnswerField,
   onUpdateChallenge,
   onUpdateChoiceOption,
@@ -2971,8 +3059,18 @@ function AdminGameForm({
           </label>
           <label>
             תשובה לשלב הסופי
-            <input className="admin-input" value={config.roomConfig.finalCode} onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)} dir="auto" />
+            <span className="final-code-admin-row">
+              <input className="admin-input" value={config.roomConfig.finalCode} onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)} dir="auto" />
+              <button className="ghost-button" type="button" onClick={onSplitFinalCodeRewards}>
+                <Sparkles aria-hidden="true" />
+                חלק עכשיו
+              </button>
+            </span>
           </label>
+          <p className="admin-help-text compact-help">
+            {finalRewardsMessage ||
+              "כשתשנו את התשובה הסופית, נחכה 10 שניות ואז נמלא אוטומטית את חלקי התשובה בכל שלב."}
+          </p>
 
           <label className="switch-setting">
             <span>
