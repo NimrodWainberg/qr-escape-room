@@ -558,6 +558,10 @@ export default function App() {
     }, 780);
   }
 
+  function openFinalShortcut() {
+    navigate(finalUnlocked ? "/" : "/final");
+  }
+
   function navigateToGame(nextGameId, nextPath = "/") {
     const nextId = normalizeGameId(nextGameId);
     window.history.pushState({}, "", buildDirectGamePath(nextId, nextPath));
@@ -729,9 +733,9 @@ export default function App() {
                 <BarChart3 aria-hidden="true" />
               </button>
               <button
-                className={`icon-button ${isEnteringFinalCode ? "is-entering-final" : ""}`}
+                className="icon-button"
                 type="button"
-                onClick={enterFinalCode}
+                onClick={openFinalShortcut}
                 aria-label="לקוד הסופי"
                 title="לקוד הסופי"
               >
@@ -807,6 +811,7 @@ export default function App() {
               roomConfig={roomConfig}
               playerSession={playerSession}
               solved={isChallengeSolved(activeChallenge, solved)}
+              finalUnlocked={finalUnlocked}
               onSolve={markSolved}
               onNavigate={navigate}
               onPlayerUpdate={updatePlayer}
@@ -1820,6 +1825,7 @@ function ChallengePage({
   roomConfig,
   playerSession,
   solved,
+  finalUnlocked,
   onSolve,
   onNavigate,
   onPlayerUpdate,
@@ -1964,7 +1970,7 @@ function ChallengePage({
           <Home aria-hidden="true" />
           לכל השלבים
         </button>
-        <button className="ghost-button" type="button" onClick={() => onNavigate("/final")}>
+        <button className="ghost-button" type="button" onClick={() => onNavigate(finalUnlocked ? "/" : "/final")}>
           <Trophy aria-hidden="true" />
           לקוד הסופי
         </button>
@@ -2026,8 +2032,8 @@ function ResultMessage({ challenge, result, roomConfig }) {
 function UnlockNotice({ challenge, challenges, onNavigate }) {
   const nextChallenge = getNextChallenge(challenges, challenge);
   const title = nextChallenge ? `${nextChallenge.title} נפתח!` : "הקוד הסופי נפתח!";
-  const actionLabel = nextChallenge ? `מעבר אל ${nextChallenge.title}` : "מעבר לקוד הסופי";
-  const actionPath = nextChallenge ? nextChallenge.path : "/final";
+  const actionLabel = nextChallenge ? `מעבר אל ${nextChallenge.title}` : "לפתיחת הפאזל";
+  const actionPath = nextChallenge ? nextChallenge.path : "/";
 
   return (
     <div className="unlock-notice" role="status">
@@ -2095,8 +2101,16 @@ function FinalPage({
   onPlayerUpdate,
   onLeaderboardRefresh,
 }) {
-  const [value, setValue] = useState("");
+  const collectedFinalCode = useMemo(
+    () => challenges.map((challenge) => (solved[challenge.id] ? challenge.reward : "")).join(""),
+    [challenges, solved],
+  );
+  const [value, setValue] = useState(collectedFinalCode);
   const [result, setResult] = useState("idle");
+
+  useEffect(() => {
+    setValue(collectedFinalCode);
+  }, [collectedFinalCode]);
 
   async function submitFinal(event) {
     event.preventDefault();
