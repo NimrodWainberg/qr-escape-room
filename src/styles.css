@@ -1084,6 +1084,145 @@ h1 {
   min-width: min(100%, 14rem);
 }
 
+.jigsaw-board.is-opened {
+  perspective: 1200px;
+}
+
+.jigsaw-board.is-opened > .jigsaw-board-picture,
+.jigsaw-board.is-opened > .jigsaw-slot {
+  opacity: 0.28;
+  transition: opacity 420ms ease;
+}
+
+.jigsaw-door {
+  position: absolute;
+  inset-block: var(--jigsaw-board-padding);
+  z-index: 8;
+  width: calc((100% - (var(--jigsaw-board-padding) * 2)) / 2);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 52%);
+  background: #16314f;
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 24%),
+    0 16px 28px rgb(0 0 0 / 28%);
+  transform-style: preserve-3d;
+  animation-duration: 1200ms;
+  animation-delay: 360ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 0.84, 0.24, 1);
+  pointer-events: none;
+}
+
+.jigsaw-door.is-left {
+  left: var(--jigsaw-board-padding);
+  border-start-start-radius: 0.5rem;
+  border-end-start-radius: 0.5rem;
+  transform-origin: left center;
+  animation-name: puzzleDoorLeftOpen;
+}
+
+.jigsaw-door.is-right {
+  right: var(--jigsaw-board-padding);
+  border-start-end-radius: 0.5rem;
+  border-end-end-radius: 0.5rem;
+  transform-origin: right center;
+  animation-name: puzzleDoorRightOpen;
+}
+
+.jigsaw-door-picture {
+  position: absolute;
+  inset-block: 0;
+  width: 200%;
+}
+
+.jigsaw-door.is-left .jigsaw-door-picture {
+  left: 0;
+}
+
+.jigsaw-door.is-right .jigsaw-door-picture {
+  right: 0;
+}
+
+.jigsaw-door .jigsaw-board-picture {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.puzzle-unlocked-panel {
+  position: absolute;
+  inset: clamp(1rem, 8%, 2.5rem);
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.65rem;
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 50% 15%, rgb(255 255 255 / 82%), transparent 34%),
+    linear-gradient(135deg, rgb(255 209 102 / 88%), rgb(35 166 166 / 84%));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 46%),
+    0 20px 38px rgb(0 0 0 / 22%);
+  color: #20140b;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.92);
+  animation: finalPanelReveal 620ms ease 1180ms forwards;
+}
+
+.puzzle-unlocked-panel > svg {
+  width: clamp(2.4rem, 10vw, 4.2rem);
+  height: clamp(2.4rem, 10vw, 4.2rem);
+}
+
+.puzzle-unlocked-panel strong {
+  font-size: clamp(1.25rem, 4vw, 2.25rem);
+  font-weight: 900;
+}
+
+.puzzle-unlocked-panel .puzzle-final-button {
+  margin-inline-start: 0;
+}
+
+.final-entry-overlay {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(255 209 102 / 34%), transparent 34%),
+    rgb(13 26 34 / 46%);
+  backdrop-filter: blur(6px);
+  animation: finalOverlayIn 220ms ease both;
+}
+
+.final-entry-card {
+  display: grid;
+  place-items: center;
+  gap: 0.85rem;
+  min-width: min(82vw, 24rem);
+  padding: clamp(1.25rem, 6vw, 2rem);
+  border-radius: 1.25rem;
+  background: var(--surface-strong);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 28%);
+  color: var(--text);
+  font-size: clamp(1.15rem, 4vw, 1.8rem);
+  font-weight: 900;
+  animation: finalEntryCard 780ms cubic-bezier(0.18, 0.82, 0.24, 1) both;
+}
+
+.final-entry-card svg {
+  width: 3rem;
+  height: 3rem;
+  color: var(--amber);
+}
+
+.icon-button.is-entering-final {
+  animation: finalButtonPulse 780ms ease both;
+}
+
 .puzzle-progress.is-complete {
   border-color: color-mix(in srgb, var(--green) 70%, var(--line));
 }
@@ -2915,6 +3054,85 @@ h1 {
 
   50% {
     transform: translateX(0.12rem);
+  }
+}
+
+@keyframes puzzleDoorLeftOpen {
+  0% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
+
+  100% {
+    opacity: 0.9;
+    transform: translateX(-84%) rotateY(-22deg);
+  }
+}
+
+@keyframes puzzleDoorRightOpen {
+  0% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
+
+  100% {
+    opacity: 0.9;
+    transform: translateX(84%) rotateY(22deg);
+  }
+}
+
+@keyframes finalPanelReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  72% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes finalOverlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes finalEntryCard {
+  0% {
+    opacity: 0;
+    transform: translateY(1.2rem) scale(0.88);
+  }
+
+  38% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-0.9rem) scale(1.12);
+  }
+}
+
+@keyframes finalButtonPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.12);
   }
 }
 

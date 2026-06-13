@@ -422,9 +422,11 @@ export default function App() {
   const [gameConfig, setGameConfig] = useState(defaultPublicGameConfig);
   const [configStatus, setConfigStatus] = useState("loading");
   const [recentlySolvedId, setRecentlySolvedId] = useState(null);
+  const [isEnteringFinalCode, setIsEnteringFinalCode] = useState(false);
   const { roomConfig, challenges } = gameConfig;
   const isAdminRoute = path === "/admin";
   const isGameRoute = !isLobby && !isAdminRoute;
+  const finalUnlocked = areAllChallengesSolved(challenges, solved);
 
   useEffect(() => {
     const onPopState = () => setRouteInfo(getRouteInfo(window.location.pathname));
@@ -541,6 +543,19 @@ export default function App() {
     window.history.pushState({}, "", buildPath(gameId, nextPath));
     setRouteInfo({ gameId, gamePath: nextPath, isLobby: false });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function enterFinalCode() {
+    if (!finalUnlocked) {
+      navigate("/final");
+      return;
+    }
+
+    setIsEnteringFinalCode(true);
+    window.setTimeout(() => {
+      navigate("/final");
+      setIsEnteringFinalCode(false);
+    }, 780);
   }
 
   function navigateToGame(nextGameId, nextPath = "/") {
@@ -714,9 +729,9 @@ export default function App() {
                 <BarChart3 aria-hidden="true" />
               </button>
               <button
-                className="icon-button"
+                className={`icon-button ${isEnteringFinalCode ? "is-entering-final" : ""}`}
                 type="button"
-                onClick={() => navigate("/final")}
+                onClick={enterFinalCode}
                 aria-label="לקוד הסופי"
                 title="לקוד הסופי"
               >
@@ -780,6 +795,7 @@ export default function App() {
               solved={solved}
               solvedCount={solvedCount}
               onOpenLogin={() => setShowLoginModal(true)}
+              onEnterFinalCode={enterFinalCode}
               onNavigate={navigate}
               onReset={resetProgress}
             />
@@ -815,6 +831,7 @@ export default function App() {
               solved={solved}
               solvedCount={solvedCount}
               onOpenLogin={() => setShowLoginModal(true)}
+              onEnterFinalCode={enterFinalCode}
               onNavigate={navigate}
               onReset={resetProgress}
             />
@@ -847,6 +864,7 @@ export default function App() {
             solved={solved}
             solvedCount={solvedCount}
             onOpenLogin={() => setShowLoginModal(true)}
+            onEnterFinalCode={enterFinalCode}
             onNavigate={navigate}
             onReset={resetProgress}
           />
@@ -868,6 +886,15 @@ export default function App() {
         <Modal title="לוח תוצאות" wide onClose={() => setShowLeaderboardModal(false)}>
           <LeaderboardPanel leaderboard={leaderboard} />
         </Modal>
+      )}
+
+      {isEnteringFinalCode && (
+        <div className="final-entry-overlay" aria-hidden="true">
+          <div className="final-entry-card">
+            <Trophy aria-hidden="true" />
+            <span>נכנסים לקוד הסופי...</span>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -972,6 +999,7 @@ function HomePage({
   solved,
   solvedCount,
   onOpenLogin,
+  onEnterFinalCode,
   onNavigate,
   onReset,
 }) {
@@ -1022,6 +1050,7 @@ function HomePage({
           recentlySolvedId={recentlySolvedId}
           solved={solved}
           finalUnlocked={finalUnlocked}
+          onEnterFinalCode={onEnterFinalCode}
           onNavigate={onNavigate}
           onReset={onReset}
         />
@@ -1068,7 +1097,7 @@ function HomePage({
         <button
           className={`primary-button wide-button ${finalUnlocked ? "" : "is-soft-locked"}`}
           type="button"
-          onClick={() => onNavigate("/final")}
+          onClick={finalUnlocked ? onEnterFinalCode : () => onNavigate("/final")}
         >
           {finalUnlocked ? <Trophy aria-hidden="true" /> : <AnimatedLock state="closed" compact />}
           {finalUnlocked ? "מעבר לקוד הסופי" : "הקוד הסופי נעול"}
@@ -1078,7 +1107,7 @@ function HomePage({
   );
 }
 
-function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, finalUnlocked, onNavigate, onReset }) {
+function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, finalUnlocked, onEnterFinalCode, onNavigate, onReset }) {
   const solvedCount = challenges.filter((challenge) => isChallengeSolved(challenge, solved)).length;
   const theme = ["vacation", "treasure", "space"].includes(roomConfig.puzzleTheme)
     ? roomConfig.puzzleTheme
@@ -1100,7 +1129,7 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
         </div>
 
         <div
-          className="jigsaw-board"
+          className={`jigsaw-board ${finalUnlocked ? "is-opened" : ""}`}
           style={{
             "--jigsaw-columns": puzzleLayout.columns,
             "--jigsaw-rows": puzzleLayout.rows,
@@ -1159,6 +1188,43 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
               </button>
             );
           })}
+
+          {finalUnlocked && (
+            <>
+              <div className="jigsaw-door is-right" aria-hidden="true">
+                <div className="jigsaw-door-picture">
+                  <JigsawBoardPicture
+                    puzzleSlots={puzzleSlots}
+                    challenges={challenges}
+                    solved={solved}
+                    theme={theme}
+                    imageUrl={roomConfig.puzzleImageUrl}
+                    layout={puzzleLayout}
+                  />
+                </div>
+              </div>
+              <div className="jigsaw-door is-left" aria-hidden="true">
+                <div className="jigsaw-door-picture">
+                  <JigsawBoardPicture
+                    puzzleSlots={puzzleSlots}
+                    challenges={challenges}
+                    solved={solved}
+                    theme={theme}
+                    imageUrl={roomConfig.puzzleImageUrl}
+                    layout={puzzleLayout}
+                  />
+                </div>
+              </div>
+              <div className="puzzle-unlocked-panel">
+                <Trophy aria-hidden="true" />
+                <strong>הפאזל הושלם</strong>
+                <button className="primary-button puzzle-final-button" type="button" onClick={onEnterFinalCode}>
+                  <Sparkles aria-hidden="true" />
+                  הזנת הקוד הסופי
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="puzzle-meter" aria-hidden="true">
@@ -1183,12 +1249,6 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
           <RefreshCcw aria-hidden="true" />
           איפוס
         </button>
-        {finalUnlocked && (
-          <button className="primary-button puzzle-final-button" type="button" onClick={() => onNavigate("/final")}>
-            <Trophy aria-hidden="true" />
-            הזנת הקוד הסופי
-          </button>
-        )}
       </div>
     </section>
   );
