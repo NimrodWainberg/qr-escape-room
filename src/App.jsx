@@ -2103,8 +2103,12 @@ function createBlankChallenge(challenges) {
   };
 }
 
+function normalizeFinalCodePart(value) {
+  return String(value ?? "").trim().replace(/\s+/g, "");
+}
+
 function splitTextIntoParts(value, count) {
-  const cleanValue = normalizeCode(value);
+  const cleanValue = normalizeFinalCodePart(value);
 
   if (!cleanValue || count <= 0) {
     return [];
@@ -2141,7 +2145,7 @@ function applyFinalCodeRewards(config) {
 }
 
 function getFinalCodeRewardsMessage(config) {
-  const cleanFinalCode = normalizeCode(config?.roomConfig?.finalCode);
+  const cleanFinalCode = normalizeFinalCodePart(config?.roomConfig?.finalCode);
   const challengeCount = config?.challenges?.length ?? 0;
 
   if (!cleanFinalCode) {
@@ -3063,7 +3067,7 @@ function AdminGameForm({
               <input className="admin-input" value={config.roomConfig.finalCode} onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)} dir="auto" />
               <button className="ghost-button" type="button" onClick={onSplitFinalCodeRewards}>
                 <Sparkles aria-hidden="true" />
-                חלק עכשיו
+                החל
               </button>
             </span>
           </label>
