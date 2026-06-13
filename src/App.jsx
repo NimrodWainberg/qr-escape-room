@@ -2203,6 +2203,8 @@ function AdminPage({
   const [newGameId, setNewGameId] = useState("");
   const [editingGame, setEditingGame] = useState(null);
   const [editingGameConfig, setEditingGameConfig] = useState(null);
+  const [wizardGame, setWizardGame] = useState(null);
+  const [wizardGameConfig, setWizardGameConfig] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
   const [newAdminName, setNewAdminName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -2390,10 +2392,28 @@ function AdminPage({
     setFinalCodeAutoFillRequest(0);
   }
 
-  function applyWizardConfig(nextConfig) {
-    updateEditableConfig(() => applyFinalCodeRewards(nextConfig));
+  async function applyWizardConfig(targetGameId, nextConfig) {
+    const cleanGameId = normalizeGameId(targetGameId);
+    const configToSave = applyFinalCodeRewards(nextConfig);
+    const response = await putJson(withGame(API.adminConfig, cleanGameId), configToSave, token);
+
+    if (cleanGameId === gameId) {
+      const publicConfig =
+        response.publicConfig ?? (await getJson(withGame(`${API.publicConfig}?ts=${Date.now()}`, cleanGameId)));
+      setConfig(response.config);
+      latestConfigRef.current = response.config;
+      onPublicConfigChange(publicConfig);
+    }
+
+    const gamesResponse = await getJson(API.adminGames, token);
+    setGames(gamesResponse.games ?? []);
+    onPublicGamesRefresh();
+    onGameChange(cleanGameId);
+    setWizardGame(null);
+    setWizardGameConfig(null);
     setFinalRewardsMessage("האשף יצר שלבים וחילק את הקוד הסופי.");
     setActiveAdminTab("game");
+    setMessage("המשחק נוצר ונשמר דרך האשף.");
   }
 
   function updateGlobalSetting(field, value) {
@@ -2604,9 +2624,11 @@ function AdminPage({
       setGames(gamesResponse.games ?? []);
       setNewGameTitle("");
       setNewGameId("");
+      setWizardGame(response.game);
+      setWizardGameConfig(response.config);
       onGameChange(response.game.id);
       onPublicGamesRefresh();
-      setMessage("המשחק החדש נוצר. אפשר לערוך לו שאלות, קודים וניקוד בטאב משחק.");
+      setMessage("המשחק החדש נוצר. אפשר לבנות אותו בצ׳אט או לסגור ולהגדיר ידנית.");
     } catch {
       setMessage("לא הצלחנו ליצור משחק. בדוק שהשם/כתובת לא קיימים כבר.");
     }
@@ -2918,6 +2940,34 @@ function AdminPage({
         </Modal>
       )}
 
+      {wizardGame && (
+        <Modal
+          title="אשף יצירת משחק"
+          wide
+          onClose={() => {
+            setWizardGame(null);
+            setWizardGameConfig(null);
+          }}
+        >
+          {!wizardGameConfig ? (
+            <p className="admin-message">טוען...</p>
+          ) : (
+            <div className="admin-form">
+              <div className="admin-editor-panel">
+                <h3>רוצים לבנות את המשחק בצ׳אט?</h3>
+                <p className="admin-help-text">
+                  אפשר לענות על כמה שאלות קצרות, והאשף ימלא את שם המשחק, התשובה הסופית, השלבים והתשובות. תמיד אפשר לסגור ולהמשיך לערוך ידנית.
+                </p>
+              </div>
+              <AdminGameWizard
+                config={wizardGameConfig}
+                onApply={(nextConfig) => applyWizardConfig(wizardGame.id, nextConfig)}
+              />
+            </div>
+          )}
+        </Modal>
+      )}
+
       {activeAdminTab === "analytics" && analytics && <AdminAnalyticsPanel analytics={analytics} />}
 
       {activeAdminTab === "users" && (
@@ -2946,7 +2996,6 @@ function AdminPage({
           onRemoveChoiceOption={removeChoiceOption}
           onSaveConfig={saveConfig}
           onSplitFinalCodeRewards={fillRewardsFromFinalCodeNow}
-          onWizardApply={applyWizardConfig}
           onUpdateAnswerField={updateChallengeAnswerField}
           onUpdateChallenge={updateChallenge}
           onUpdateChoiceOption={updateChoiceOption}
@@ -2975,7 +3024,7 @@ function AdminGamesPanel({
     <section className="admin-section">
       <legend>משחקים</legend>
       <p className="muted">
-        כל משחק מקבל כתובות, שאלות, קודים, שחקנים ודירוג משלו. משחק חדש מועתק מהמשחק הנוכחי כדי להתחיל מהר.
+        כל משחק מקבל כתובות, שאלות, קודים, שחקנים ודירוג משלו. אחרי יצירת משחק אפשר לבנות אותו בצ׳אט או לערוך ידנית.
       </p>
 
       <div className="admin-games-list">
@@ -3041,7 +3090,7 @@ function AdminGamesPanel({
           </label>
         </div>
         <p className="admin-help-text">
-          אחרי היצירה אפשר לערוך בטאב משחק את השאלות, הקודים, הניקוד, ההודעות והפתרון הסופי.
+          אחרי היצירה ייפתח אשף קצר בצ׳אט. אפשר לסגור אותו ולהמשיך לערוך בטאב משחק.
         </p>
         <button className="primary-button" type="submit">
           <Plus aria-hidden="true" />
@@ -3136,6 +3185,7 @@ function createWizardChallenge(index, level, existingChallenge = null) {
 function AdminGameWizard({ config, onApply }) {
   const [step, setStep] = useState("title");
   const [input, setInput] = useState("");
+  const [isApplying, setIsApplying] = useState(false);
   const [draft, setDraft] = useState({
     title: config.roomConfig.title ?? "",
     finalCode: config.roomConfig.finalCode ?? "",
@@ -3154,6 +3204,7 @@ function AdminGameWizard({ config, onApply }) {
   function resetWizard() {
     setStep("title");
     setInput("");
+    setIsApplying(false);
     setDraft({
       title: config.roomConfig.title ?? "",
       finalCode: config.roomConfig.finalCode ?? "",
@@ -3233,7 +3284,7 @@ function AdminGameWizard({ config, onApply }) {
     }
   }
 
-  function applyWizard() {
+  async function applyWizard() {
     const levels = draft.levels.slice(0, draft.count);
     const nextConfig = {
       ...config,
@@ -3245,8 +3296,14 @@ function AdminGameWizard({ config, onApply }) {
       challenges: levels.map((level, index) => createWizardChallenge(index, level, config.challenges[index])),
     };
 
-    onApply(nextConfig);
-    addMessages([{ role: "assistant", text: "בוצע. המשחק עודכן ונשמר אוטומטית." }]);
+    setIsApplying(true);
+    try {
+      await onApply(nextConfig);
+      addMessages([{ role: "assistant", text: "בוצע. המשחק עודכן ונשמר." }]);
+    } catch {
+      addMessages([{ role: "assistant", text: "לא הצלחנו לשמור כרגע. אפשר לנסות שוב." }]);
+      setIsApplying(false);
+    }
   }
 
   return (
@@ -3281,9 +3338,9 @@ function AdminGameWizard({ config, onApply }) {
         </div>
       ) : (
         <div className="admin-actions">
-          <button className="primary-button" type="button" onClick={applyWizard}>
+          <button className="primary-button" type="button" onClick={applyWizard} disabled={isApplying}>
             <Save aria-hidden="true" />
-            החל על המשחק
+            {isApplying ? "שומר..." : "החל על המשחק"}
           </button>
           <button className="ghost-button" type="button" onClick={resetWizard}>
             <RefreshCcw aria-hidden="true" />
@@ -3308,7 +3365,6 @@ function AdminGameForm({
   onRemoveChoiceOption,
   onSaveConfig,
   onSplitFinalCodeRewards,
-  onWizardApply,
   onUpdateAnswerField,
   onUpdateChallenge,
   onUpdateChoiceOption,
@@ -3328,15 +3384,6 @@ function AdminGameForm({
           onClick={() => setSection("main")}
         >
           עיקרי
-        </button>
-        <button
-          aria-selected={section === "wizard"}
-          className={section === "wizard" ? "is-active" : ""}
-          role="tab"
-          type="button"
-          onClick={() => setSection("wizard")}
-        >
-          אשף
         </button>
         <button
           aria-selected={section === "levels"}
@@ -3443,8 +3490,6 @@ function AdminGameForm({
           )}
         </div>
       )}
-
-      {section === "wizard" && <AdminGameWizard config={config} onApply={onWizardApply} />}
 
       {section === "advanced" && (
         <>
