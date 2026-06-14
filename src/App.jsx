@@ -734,12 +734,20 @@ export default function App() {
   }
 
   function logoutPlayer() {
-    localStorage.removeItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId));
+    if (
+      !window.confirm(
+        "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
+      )
+    ) {
+      return;
+    }
+
+    Object.keys(localStorage)
+      .filter((key) => key === PLAYER_SESSION_KEY || key.startsWith(`${PLAYER_SESSION_KEY}:`))
+      .forEach((key) => localStorage.removeItem(key));
     localStorage.removeItem(PLAYER_PROFILE_KEY);
-    localStorage.removeItem(storageKeyForGame(STORAGE_KEY, gameId));
     setPlayerProfile(null);
     setPlayerSession(null);
-    setSolved({});
   }
 
   return (
@@ -752,9 +760,9 @@ export default function App() {
         </button>
 
         <nav className="nav-actions" aria-label="ניווט">
-          {isGameRoute && playerSession?.player?.name && (
+          {((isGameRoute && playerSession?.player?.name) || (isLobby && playerProfile?.name)) && (
             <span className="player-pill">
-              <span className="player-pill-name">שלום {playerSession.player.name}</span>
+              <span className="player-pill-name">שלום {playerSession?.player?.name ?? playerProfile.name}</span>
               <button type="button" onClick={logoutPlayer} aria-label="יציאה מהמשחק" title="יציאה מהמשחק">
                 <LogOut aria-hidden="true" />
               </button>
@@ -3691,6 +3699,100 @@ function AdminGameWizard({ config, onApply }) {
   );
 }
 
+function addSearchResult(results, query, item) {
+  const value = String(item.value ?? "");
+
+  if (!query || !value.toLowerCase().includes(query)) {
+    return;
+  }
+
+  results.push({ ...item, value });
+}
+
+function getAdminConfigSearchResults(config, query) {
+  if (!query) {
+    return [];
+  }
+
+  const results = [];
+  const roomFields = [
+    ["שם המשחק", "title", config.roomConfig.title, "main"],
+    ["טקסט פתיחה", "subtitle", config.roomConfig.subtitle, "main"],
+    ["תשובה לשלב הסופי", "finalCode", config.roomConfig.finalCode, "final"],
+    ["טקסט לפני הקוד הסופי", "finalPrompt", config.roomConfig.finalPrompt, "final"],
+    ["כותרת מסך סיום", "finalSuccessTitle", config.roomConfig.finalSuccessTitle, "final"],
+    ["הודעת מסך סיום", "finalSuccessMessage", config.roomConfig.finalSuccessMessage, "final"],
+    ["כותרת פאזל", "puzzleTitle", config.roomConfig.puzzleTitle, "main"],
+    ["טקסט פאזל", "puzzleSubtitle", config.roomConfig.puzzleSubtitle, "main"],
+    ["תווית תשובה ברירת מחדל", "defaultAnswerLabel", config.roomConfig.defaultAnswerLabel, "advanced"],
+    ["הודעת הצלחה ברירת מחדל", "defaultSuccessMessage", config.roomConfig.defaultSuccessMessage, "advanced"],
+    ["הודעת שגיאה ברירת מחדל", "defaultErrorMessage", config.roomConfig.defaultErrorMessage, "advanced"],
+  ];
+
+  roomFields.forEach(([label, field, value, section]) => {
+    addSearchResult(results, query, {
+      id: `room-${field}`,
+      label,
+      section,
+      scope: "משחק",
+      value,
+    });
+  });
+
+  config.challenges.forEach((challenge, index) => {
+    const level = `שלב ${challenge.id}`;
+    const challengeFields = [
+      ["כותרת", "title", challenge.title],
+      ["שאלה", "question", challenge.question],
+      ["תשובה", "answer", challenge.answer],
+      ["חלק בקוד הסופי", "reward", challenge.reward],
+      ["טקסט לפני שדה התשובה", "answerLabel", challenge.answerLabel],
+      ["הודעת הצלחה", "successMessage", challenge.successMessage],
+      ["הודעת שגיאה", "errorMessage", challenge.errorMessage],
+    ];
+
+    challengeFields.forEach(([label, field, value]) => {
+      addSearchResult(results, query, {
+        id: `challenge-${challenge.id}-${field}`,
+        label,
+        section: "levels",
+        scope: level,
+        value,
+      });
+    });
+
+    (challenge.answerFields ?? []).forEach((field, fieldIndex) => {
+      addSearchResult(results, query, {
+        id: `challenge-${challenge.id}-answer-field-${fieldIndex}`,
+        label: field.label ? `שדה תשובה: ${field.label}` : `שדה תשובה ${fieldIndex + 1}`,
+        section: "levels",
+        scope: level,
+        value: field.answer,
+      });
+    });
+
+    (challenge.choiceOptions ?? []).forEach((option, optionIndex) => {
+      addSearchResult(results, query, {
+        id: `challenge-${challenge.id}-choice-${optionIndex}`,
+        label: option.correct ? `אפשרות נכונה ${optionIndex + 1}` : `אפשרות ${optionIndex + 1}`,
+        section: "levels",
+        scope: level,
+        value: option.text,
+      });
+    });
+
+    addSearchResult(results, query, {
+      id: `challenge-${challenge.id}-path`,
+      label: "כתובת",
+      section: "levels",
+      scope: level,
+      value: challenge.path,
+    });
+  });
+
+  return results.slice(0, 30);
+}
+
 function AdminGameForm({
   config,
   finalRewardsMessage,
@@ -3712,11 +3814,26 @@ function AdminGameForm({
 }) {
   const [section, setSection] = useState("main");
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const puzzleEnabled = config.roomConfig.puzzleMode === "reveal";
-  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const normalizedSearchTerm = debouncedSearchTerm.trim().toLowerCase();
+  const searchResults = useMemo(
+    () => getAdminConfigSearchResults(config, normalizedSearchTerm),
+    [config, normalizedSearchTerm],
+  );
   const filteredChallenges = normalizedSearchTerm
-    ? config.challenges.filter((challenge) => JSON.stringify(challenge).toLowerCase().includes(normalizedSearchTerm))
+    ? config.challenges.filter((challenge) =>
+        searchResults.some((result) => result.id.startsWith(`challenge-${challenge.id}-`)),
+      )
     : config.challenges;
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 220);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   return (
     <form className="admin-form" onSubmit={onSaveConfig}>
@@ -3738,6 +3855,33 @@ function AdminGameForm({
           </button>
         )}
       </div>
+
+      {normalizedSearchTerm && (
+        <section className="admin-search-results" aria-label="תוצאות חיפוש">
+          <div className="admin-section-heading">
+            <strong>{searchResults.length ? `${searchResults.length} תוצאות` : "לא נמצאו תוצאות"}</strong>
+            <span>לחיצה על תוצאה תפתח את הטאב המתאים.</span>
+          </div>
+          {searchResults.length > 0 && (
+            <div className="admin-search-result-list">
+              {searchResults.map((result) => (
+                <button
+                  className="admin-search-result"
+                  key={result.id}
+                  type="button"
+                  onClick={() => setSection(result.section)}
+                >
+                  <span>
+                    <strong>{result.scope}</strong>
+                    <small>{result.label}</small>
+                  </span>
+                  <em dir="auto">{result.value}</em>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
         <button
