@@ -51,6 +51,7 @@ const defaultGameConfig = {
 
 const defaultGlobalSettings = {
   showEmailLogin: true,
+  puzzleImages: [],
 };
 
 function createBlankGameConfig(title = "") {
@@ -186,9 +187,20 @@ function cleanAnswerInputMode(value) {
 
 export function sanitizeGlobalSettings(settings) {
   const source = settings && typeof settings === "object" ? settings : defaultGlobalSettings;
+  const puzzleImages = Array.isArray(source.puzzleImages)
+    ? source.puzzleImages
+        .slice(0, 30)
+        .map((image, index) => ({
+          id: cleanString(image?.id, `image-${index + 1}`) || `image-${index + 1}`,
+          name: cleanString(image?.name, `תמונה ${index + 1}`) || `תמונה ${index + 1}`,
+          url: cleanString(image?.url),
+        }))
+        .filter((image) => image.url)
+    : defaultGlobalSettings.puzzleImages;
 
   return {
     showEmailLogin: source.showEmailLogin === false ? false : defaultGlobalSettings.showEmailLogin,
+    puzzleImages,
   };
 }
 

@@ -564,13 +564,15 @@ export default function App() {
   }, [gameId, isGameRoute, playerProfile, playerSession]);
 
   useEffect(() => {
-    if (!isGameRoute) {
+    if (!isGameRoute && !isLobby) {
       setShowLoginModal(false);
       return;
     }
 
-    setShowLoginModal(!playerSession && !playerProfile);
-  }, [gameId, isGameRoute, playerProfile, playerSession]);
+    if (isGameRoute) {
+      setShowLoginModal(!playerSession && !playerProfile);
+    }
+  }, [gameId, isGameRoute, isLobby, playerProfile, playerSession]);
 
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
@@ -661,9 +663,17 @@ export default function App() {
   }
 
   async function loginPlayer(credentials) {
+    const profile = { name: credentials.name, email: credentials.email ?? "" };
+
+    if (isLobby) {
+      localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
+      setPlayerProfile(profile);
+      setShowLoginModal(false);
+      return;
+    }
+
     const session = await postJson(API.playerLogin, { ...credentials, gameId });
     const sessionWithGame = { ...session, gameId };
-    const profile = { name: credentials.name, email: credentials.email ?? "" };
     localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
     localStorage.setItem(storageKeyForGame(PLAYER_SESSION_KEY, gameId), JSON.stringify(sessionWithGame));
     setPlayerProfile(profile);
@@ -750,7 +760,7 @@ export default function App() {
               </button>
             </span>
           )}
-          {isGameRoute && !playerSession && (
+          {(isGameRoute || isLobby) && !playerProfile && (
             <button
               className="icon-button"
               type="button"
@@ -2380,7 +2390,7 @@ function AdminPage({
   const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
-  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true });
+  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true, puzzleImages: [] });
   const [analytics, setAnalytics] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState("games");
   const [games, setGames] = useState([]);
@@ -2938,7 +2948,7 @@ function AdminPage({
     setConfig(null);
     savedConfigRef.current = null;
     setAnalytics(null);
-    setGlobalSettings({ showEmailLogin: true });
+    setGlobalSettings({ showEmailLogin: true, puzzleImages: [] });
     setAdminUsers([]);
     setGames([]);
     setStatus("idle");
@@ -3085,6 +3095,15 @@ function AdminPage({
           message={message}
           settings={globalSettings}
           status={status}
+          onAddPuzzleImage={(image) =>
+            updateGlobalSetting("puzzleImages", [...(globalSettings.puzzleImages ?? []), image])
+          }
+          onRemovePuzzleImage={(imageId) =>
+            updateGlobalSetting(
+              "puzzleImages",
+              (globalSettings.puzzleImages ?? []).filter((image) => image.id !== imageId),
+            )
+          }
           onSave={saveGlobalSettings}
           onUpdate={updateGlobalSetting}
         />
@@ -3198,6 +3217,7 @@ function AdminPage({
         <AdminGameForm
           config={config}
           finalRewardsMessage={finalRewardsMessage}
+          globalSettings={globalSettings}
           message={message}
           status={status}
           onAddChallenge={addChallenge}
@@ -3315,7 +3335,50 @@ function AdminGamesPanel({
   );
 }
 
-function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate }) {
+function AdminGlobalSettingsPanel({ message, settings, status, onAddPuzzleImage, onRemovePuzzleImage, onSave, onUpdate }) {
+  const [puzzleImageName, setPuzzleImageName] = useState("");
+  const [puzzleImageUrl, setPuzzleImageUrl] = useState("");
+  const [puzzleImageStatus, setPuzzleImageStatus] = useState("");
+
+  async function handlePuzzleImageFile(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setPuzzleImageStatus("טוען תמונה...");
+
+    try {
+      const dataUrl = await readImageFile(file);
+      setPuzzleImageUrl(dataUrl);
+      setPuzzleImageStatus("התמונה נטענה. תנו לה שם ולחצו הוספה.");
+    } catch {
+      setPuzzleImageStatus("התמונה גדולה מדי. נסו תמונה קטנה יותר או הדביקו קישור לתמונה.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function addPuzzleImage(event) {
+    event.preventDefault();
+    const cleanUrl = puzzleImageUrl.trim();
+
+    if (!cleanUrl) {
+      setPuzzleImageStatus("צריך להעלות תמונה או להדביק קישור.");
+      return;
+    }
+
+    onAddPuzzleImage({
+      id: `puzzle-image-${Date.now().toString(36)}`,
+      name: puzzleImageName.trim() || `תמונה ${(settings.puzzleImages ?? []).length + 1}`,
+      url: cleanUrl,
+    });
+    setPuzzleImageName("");
+    setPuzzleImageUrl("");
+    setPuzzleImageStatus("התמונה נוספה לספרייה. השמירה האוטומטית תעדכן את כל המשחקים.");
+  }
+
   return (
     <form className="admin-form" onSubmit={onSave}>
       <fieldset className="admin-section">
@@ -3337,6 +3400,70 @@ function AdminGlobalSettingsPanel({ message, settings, status, onSave, onUpdate 
         <p className="admin-help-text">
           ההגדרות כאן חלות על כל המשחקים. הגדרות טקסטים, ניקוד ופאזל נשמרות בנפרד לכל משחק.
         </p>
+      </fieldset>
+
+      <fieldset className="admin-section">
+        <legend>ספריית תמונות פאזל</legend>
+        <p className="admin-help-text">
+          תמונות שתוסיפו כאן יופיעו כאפשרות בחירה בכל משחק שמפעיל פאזל.
+        </p>
+        <div className="admin-inline-fields">
+          <label>
+            שם לתמונה
+            <input
+              className="admin-input"
+              value={puzzleImageName}
+              onChange={(event) => setPuzzleImageName(event.target.value)}
+              placeholder="לדוגמה: חופשה בים"
+            />
+          </label>
+          <label>
+            קישור לתמונה
+            <input
+              className="admin-input"
+              value={puzzleImageUrl.startsWith("data:image/") ? "" : puzzleImageUrl}
+              onChange={(event) => setPuzzleImageUrl(event.target.value)}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </label>
+        </div>
+        <div className="admin-image-actions">
+          <label className="ghost-button file-upload-button">
+            העלאת תמונה
+            <input type="file" accept="image/*" onChange={handlePuzzleImageFile} />
+          </label>
+          <button className="primary-button" type="button" onClick={addPuzzleImage}>
+            <Plus aria-hidden="true" />
+            הוספה לספרייה
+          </button>
+        </div>
+        {puzzleImageUrl && (
+          <div className="admin-image-preview">
+            <img src={puzzleImageUrl} alt="" />
+          </div>
+        )}
+        {puzzleImageStatus && <p className="admin-help-text">{puzzleImageStatus}</p>}
+
+        {(settings.puzzleImages ?? []).length > 0 && (
+          <div className="puzzle-image-library">
+            {(settings.puzzleImages ?? []).map((image) => (
+              <div className="puzzle-image-card" key={image.id}>
+                <img src={image.url} alt="" />
+                <strong>{image.name}</strong>
+                <button
+                  className="icon-button danger-button"
+                  type="button"
+                  onClick={() => onRemovePuzzleImage(image.id)}
+                  aria-label={`מחיקת ${image.name}`}
+                  title={`מחיקת ${image.name}`}
+                >
+                  <Trash2 aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </fieldset>
 
       <div className="admin-actions">
@@ -3567,6 +3694,7 @@ function AdminGameWizard({ config, onApply }) {
 function AdminGameForm({
   config,
   finalRewardsMessage,
+  globalSettings,
   message,
   status,
   onAddAnswerField,
@@ -3583,10 +3711,34 @@ function AdminGameForm({
   onUpdateRoomConfig,
 }) {
   const [section, setSection] = useState("main");
+  const [searchTerm, setSearchTerm] = useState("");
   const puzzleEnabled = config.roomConfig.puzzleMode === "reveal";
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredChallenges = normalizedSearchTerm
+    ? config.challenges.filter((challenge) => JSON.stringify(challenge).toLowerCase().includes(normalizedSearchTerm))
+    : config.challenges;
 
   return (
     <form className="admin-form" onSubmit={onSaveConfig}>
+      <div className="admin-search-row">
+        <label>
+          חיפוש בהגדרות
+          <input
+            className="admin-input"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder='חפשו שאלה, תשובה או טקסט, למשל "bla bla"'
+            dir="auto"
+          />
+        </label>
+        {searchTerm && (
+          <button className="ghost-button" type="button" onClick={() => setSearchTerm("")}>
+            <X aria-hidden="true" />
+            ניקוי
+          </button>
+        )}
+      </div>
+
       <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
         <button
           aria-selected={section === "main"}
@@ -3596,6 +3748,15 @@ function AdminGameForm({
           onClick={() => setSection("main")}
         >
           עיקרי
+        </button>
+        <button
+          aria-selected={section === "final"}
+          className={section === "final" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setSection("final")}
+        >
+          סיום
         </button>
         <button
           aria-selected={section === "levels"}
@@ -3632,20 +3793,6 @@ function AdminGameForm({
               placeholder="טקסט קצר שמופיע מתחת לכותרת"
             />
           </label>
-          <label>
-            תשובה לשלב הסופי
-            <span className="final-code-admin-row">
-              <input className="admin-input" value={config.roomConfig.finalCode} onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)} dir="auto" />
-              <button className="ghost-button" type="button" onClick={onSplitFinalCodeRewards}>
-                <Sparkles aria-hidden="true" />
-                החל
-              </button>
-            </span>
-          </label>
-          <p className="admin-help-text compact-help">
-            {finalRewardsMessage ||
-              "כשתשנו את התשובה הסופית, נחכה 10 שניות ואז נמלא אוטומטית את חלקי התשובה בכל שלב."}
-          </p>
 
           <label className="switch-setting">
             <span>
@@ -3670,6 +3817,23 @@ function AdminGameForm({
                 onChange={(value) => onUpdateRoomConfig("puzzleImageUrl", value)}
                 help="אם מעלים תמונה, היא תחליף את ציור ברירת המחדל ותישמר עם המשחק הזה."
               />
+              {(globalSettings.puzzleImages ?? []).length > 0 && (
+                <label>
+                  בחירה מספריית תמונות
+                  <select
+                    className="admin-input"
+                    value={config.roomConfig.puzzleImageUrl ?? ""}
+                    onChange={(event) => onUpdateRoomConfig("puzzleImageUrl", event.target.value)}
+                  >
+                    <option value="">ציור ברירת מחדל</option>
+                    {(globalSettings.puzzleImages ?? []).map((image) => (
+                      <option key={image.id} value={image.url}>
+                        {image.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>
                 סגנון ברירת מחדל
                 <select className="admin-input" value={config.roomConfig.puzzleTheme ?? "vacation"} onChange={(event) => onUpdateRoomConfig("puzzleTheme", event.target.value)}>
@@ -3700,6 +3864,67 @@ function AdminGameForm({
               </AdminCollapsibleSection>
             </div>
           )}
+        </div>
+      )}
+
+      {section === "final" && (
+        <div className="admin-editor-panel">
+          <label>
+            תשובה לשלב הסופי
+            <span className="final-code-admin-row">
+              <input className="admin-input" value={config.roomConfig.finalCode} onChange={(event) => onUpdateRoomConfig("finalCode", event.target.value)} dir="auto" />
+              <button className="ghost-button" type="button" onClick={onSplitFinalCodeRewards}>
+                <Sparkles aria-hidden="true" />
+                החל
+              </button>
+            </span>
+          </label>
+          <p className="admin-help-text compact-help">
+            {finalRewardsMessage ||
+              "כשתשנו את התשובה הסופית, נחכה 10 שניות ואז נמלא אוטומטית את חלקי התשובה בכל שלב."}
+          </p>
+
+          <AdminCollapsibleSection title="קוד סופי ומסך סיום" meta="טקסטים וניקוד סיום" defaultOpen>
+            <label>
+              טקסט לפני הקוד הסופי
+              <textarea className="admin-textarea" value={config.roomConfig.finalPrompt} onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)} />
+            </label>
+            <div className="admin-inline-fields">
+              <label>
+                בונוס לקוד הסופי
+                <input
+                  className="admin-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={config.roomConfig.finalBonusPoints}
+                  onChange={(event) => onUpdateRoomConfig("finalBonusPoints", event.target.value)}
+                />
+              </label>
+              <label>
+                הודעת שגיאה בקוד הסופי
+                <textarea className="admin-textarea compact-textarea" value={config.roomConfig.finalErrorMessage} onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)} />
+              </label>
+            </div>
+            <div className="admin-inline-fields">
+              <label>
+                כותרת קטנה במסך הסיום
+                <input className="admin-input" value={config.roomConfig.finalSuccessEyebrow} onChange={(event) => onUpdateRoomConfig("finalSuccessEyebrow", event.target.value)} />
+              </label>
+              <label>
+                כותרת גדולה במסך הסיום
+                <input className="admin-input" value={config.roomConfig.finalSuccessTitle} onChange={(event) => onUpdateRoomConfig("finalSuccessTitle", event.target.value)} />
+              </label>
+            </div>
+            <label>
+              הודעה במסך הסיום
+              <textarea className="admin-textarea compact-textarea" value={config.roomConfig.finalSuccessMessage} onChange={(event) => onUpdateRoomConfig("finalSuccessMessage", event.target.value)} />
+            </label>
+            <label>
+              טקסט כפתור במסך הסיום
+              <input className="admin-input" value={config.roomConfig.finalSuccessButtonLabel} onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)} />
+            </label>
+          </AdminCollapsibleSection>
         </div>
       )}
 
@@ -3760,53 +3985,15 @@ function AdminGameForm({
               </label>
             </div>
           </AdminCollapsibleSection>
-
-          <AdminCollapsibleSection title="קוד סופי ומסך סיום" meta="טקסטים וניקוד סיום">
-            <label>
-              טקסט לפני הקוד הסופי
-              <textarea className="admin-textarea" value={config.roomConfig.finalPrompt} onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)} />
-            </label>
-            <div className="admin-inline-fields">
-              <label>
-                בונוס לקוד הסופי
-                <input
-                  className="admin-input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={config.roomConfig.finalBonusPoints}
-                  onChange={(event) => onUpdateRoomConfig("finalBonusPoints", event.target.value)}
-                />
-              </label>
-              <label>
-                הודעת שגיאה בקוד הסופי
-                <textarea className="admin-textarea compact-textarea" value={config.roomConfig.finalErrorMessage} onChange={(event) => onUpdateRoomConfig("finalErrorMessage", event.target.value)} />
-              </label>
-            </div>
-            <div className="admin-inline-fields">
-              <label>
-                כותרת קטנה במסך הסיום
-                <input className="admin-input" value={config.roomConfig.finalSuccessEyebrow} onChange={(event) => onUpdateRoomConfig("finalSuccessEyebrow", event.target.value)} />
-              </label>
-              <label>
-                כותרת גדולה במסך הסיום
-                <input className="admin-input" value={config.roomConfig.finalSuccessTitle} onChange={(event) => onUpdateRoomConfig("finalSuccessTitle", event.target.value)} />
-              </label>
-            </div>
-            <label>
-              הודעה במסך הסיום
-              <textarea className="admin-textarea compact-textarea" value={config.roomConfig.finalSuccessMessage} onChange={(event) => onUpdateRoomConfig("finalSuccessMessage", event.target.value)} />
-            </label>
-            <label>
-              טקסט כפתור במסך הסיום
-              <input className="admin-input" value={config.roomConfig.finalSuccessButtonLabel} onChange={(event) => onUpdateRoomConfig("finalSuccessButtonLabel", event.target.value)} />
-            </label>
-          </AdminCollapsibleSection>
         </>
       )}
 
       {section === "levels" && (
-        <AdminCollapsibleSection title="שלבים" meta={`${config.challenges.length} שלבים`} defaultOpen>
+        <AdminCollapsibleSection
+          title="שלבים"
+          meta={normalizedSearchTerm ? `${filteredChallenges.length}/${config.challenges.length} תוצאות` : `${config.challenges.length} שלבים`}
+          defaultOpen
+        >
         <div className="admin-section-heading">
           <span>אפשר להוסיף או להסיר שלבים. שלב חדש מקבל כתובת חדשה אוטומטית.</span>
           <button className="ghost-button" type="button" onClick={onAddChallenge}>
@@ -3815,10 +4002,12 @@ function AdminGameForm({
           </button>
         </div>
         <div className="admin-challenges">
-          {config.challenges.map((challenge, index) => (
+          {filteredChallenges.map((challenge) => {
+            const index = config.challenges.findIndex((item) => item.id === challenge.id);
+            return (
             <AdminCollapsibleSection
               className="admin-challenge-collapse"
-              defaultOpen={index === 0}
+              defaultOpen={index === 0 || Boolean(normalizedSearchTerm)}
               key={challenge.id}
               meta={challenge.path}
               title={`שלב ${challenge.id}`}
@@ -4049,7 +4238,8 @@ function AdminGameForm({
                 </div>
               </AdminCollapsibleSection>
             </AdminCollapsibleSection>
-          ))}
+            );
+          })}
         </div>
         </AdminCollapsibleSection>
       )}
