@@ -51,6 +51,7 @@ const defaultGameConfig = {
 
 const defaultGlobalSettings = {
   showEmailLogin: true,
+  logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
   puzzleImages: [],
 };
 
@@ -200,6 +201,7 @@ export function sanitizeGlobalSettings(settings) {
 
   return {
     showEmailLogin: source.showEmailLogin === false ? false : defaultGlobalSettings.showEmailLogin,
+    logoutConfirmMessage: cleanString(source.logoutConfirmMessage, defaultGlobalSettings.logoutConfirmMessage),
     puzzleImages,
   };
 }
@@ -367,6 +369,7 @@ export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
       puzzleImageUrl: safeConfig.roomConfig.puzzleImageUrl,
       passwordProtected: Boolean(safeConfig.roomConfig.gamePassword),
       showEmailLogin: safeGlobalSettings.showEmailLogin,
+      logoutConfirmMessage: safeGlobalSettings.logoutConfirmMessage,
       defaultAnswerLabel: safeConfig.roomConfig.defaultAnswerLabel,
     },
     challenges: safeConfig.challenges.map(({ answer, answerFields, choiceOptions, ...challenge }) => ({

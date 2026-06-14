@@ -2334,9 +2334,32 @@ h1 {
   background: color-mix(in srgb, var(--teal) 9%, var(--surface-strong));
 }
 
-.admin-search-result-list {
+.admin-search-result-list,
+.admin-search-edit-list {
   display: grid;
   gap: 0.55rem;
+}
+
+.admin-search-edit-card {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.45fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--surface-strong);
+}
+
+.admin-search-edit-card > span {
+  display: grid;
+  gap: 0.1rem;
+  padding-block-start: 0.45rem;
+}
+
+.admin-search-edit-card small {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .admin-search-result {
@@ -3658,6 +3681,10 @@ h1 {
   }
 
   .admin-search-result {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-search-edit-card {
     grid-template-columns: 1fr;
   }
 

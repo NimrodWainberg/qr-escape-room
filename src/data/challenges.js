@@ -11,6 +11,7 @@ export const roomConfig = {
   finalSuccessButtonLabel: "חזרה לשלבים",
   passwordProtected: false,
   showEmailLogin: true,
+  logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
   defaultAnswerLabel: "הכניסו את הקוד",
   questionPoints: 10,
   wrongAnswerPenalty: 1,

@@ -736,7 +736,10 @@ export default function App() {
   function logoutPlayer() {
     if (
       !window.confirm(
-        "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
+        getEditableText(
+          roomConfig.logoutConfirmMessage,
+          "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
+        ),
       )
     ) {
       return;
@@ -2398,7 +2401,11 @@ function AdminPage({
   const [adminIdentifier, setAdminIdentifier] = useState("admin");
   const [password, setPassword] = useState("");
   const [config, setConfig] = useState(null);
-  const [globalSettings, setGlobalSettings] = useState({ showEmailLogin: true, puzzleImages: [] });
+  const [globalSettings, setGlobalSettings] = useState({
+    showEmailLogin: true,
+    logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
+    puzzleImages: [],
+  });
   const [analytics, setAnalytics] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState("games");
   const [games, setGames] = useState([]);
@@ -2956,7 +2963,11 @@ function AdminPage({
     setConfig(null);
     savedConfigRef.current = null;
     setAnalytics(null);
-    setGlobalSettings({ showEmailLogin: true, puzzleImages: [] });
+    setGlobalSettings({
+      showEmailLogin: true,
+      logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
+      puzzleImages: [],
+    });
     setAdminUsers([]);
     setGames([]);
     setStatus("idle");
@@ -3405,6 +3416,15 @@ function AdminGlobalSettingsPanel({ message, settings, status, onAddPuzzleImage,
             <span className="switch-thumb" />
           </span>
         </label>
+        <label>
+          טקסט אישור יציאה
+          <textarea
+            className="admin-textarea compact-textarea"
+            value={settings.logoutConfirmMessage ?? ""}
+            onChange={(event) => onUpdate("logoutConfirmMessage", event.target.value)}
+            placeholder="לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר..."
+          />
+        </label>
         <p className="admin-help-text">
           ההגדרות כאן חלות על כל המשחקים. הגדרות טקסטים, ניקוד ופאזל נשמרות בנפרד לכל משחק.
         </p>
@@ -3716,47 +3736,54 @@ function getAdminConfigSearchResults(config, query) {
 
   const results = [];
   const roomFields = [
-    ["שם המשחק", "title", config.roomConfig.title, "main"],
-    ["טקסט פתיחה", "subtitle", config.roomConfig.subtitle, "main"],
-    ["תשובה לשלב הסופי", "finalCode", config.roomConfig.finalCode, "final"],
-    ["טקסט לפני הקוד הסופי", "finalPrompt", config.roomConfig.finalPrompt, "final"],
-    ["כותרת מסך סיום", "finalSuccessTitle", config.roomConfig.finalSuccessTitle, "final"],
-    ["הודעת מסך סיום", "finalSuccessMessage", config.roomConfig.finalSuccessMessage, "final"],
-    ["כותרת פאזל", "puzzleTitle", config.roomConfig.puzzleTitle, "main"],
-    ["טקסט פאזל", "puzzleSubtitle", config.roomConfig.puzzleSubtitle, "main"],
-    ["תווית תשובה ברירת מחדל", "defaultAnswerLabel", config.roomConfig.defaultAnswerLabel, "advanced"],
-    ["הודעת הצלחה ברירת מחדל", "defaultSuccessMessage", config.roomConfig.defaultSuccessMessage, "advanced"],
-    ["הודעת שגיאה ברירת מחדל", "defaultErrorMessage", config.roomConfig.defaultErrorMessage, "advanced"],
+    ["שם המשחק", "title", config.roomConfig.title, "main", "input"],
+    ["טקסט פתיחה", "subtitle", config.roomConfig.subtitle, "main", "textarea"],
+    ["תשובה לשלב הסופי", "finalCode", config.roomConfig.finalCode, "final", "input"],
+    ["טקסט לפני הקוד הסופי", "finalPrompt", config.roomConfig.finalPrompt, "final", "textarea"],
+    ["כותרת מסך סיום", "finalSuccessTitle", config.roomConfig.finalSuccessTitle, "final", "input"],
+    ["הודעת מסך סיום", "finalSuccessMessage", config.roomConfig.finalSuccessMessage, "final", "textarea"],
+    ["כותרת פאזל", "puzzleTitle", config.roomConfig.puzzleTitle, "main", "input"],
+    ["טקסט פאזל", "puzzleSubtitle", config.roomConfig.puzzleSubtitle, "main", "textarea"],
+    ["תווית תשובה ברירת מחדל", "defaultAnswerLabel", config.roomConfig.defaultAnswerLabel, "advanced", "input"],
+    ["הודעת הצלחה ברירת מחדל", "defaultSuccessMessage", config.roomConfig.defaultSuccessMessage, "advanced", "textarea"],
+    ["הודעת שגיאה ברירת מחדל", "defaultErrorMessage", config.roomConfig.defaultErrorMessage, "advanced", "textarea"],
   ];
 
-  roomFields.forEach(([label, field, value, section]) => {
+  roomFields.forEach(([label, field, value, section, control]) => {
     addSearchResult(results, query, {
       id: `room-${field}`,
+      kind: "room",
+      field,
       label,
       section,
       scope: "משחק",
+      control,
       value,
     });
   });
 
-  config.challenges.forEach((challenge, index) => {
+  config.challenges.forEach((challenge, challengeIndex) => {
     const level = `שלב ${challenge.id}`;
     const challengeFields = [
-      ["כותרת", "title", challenge.title],
-      ["שאלה", "question", challenge.question],
-      ["תשובה", "answer", challenge.answer],
-      ["חלק בקוד הסופי", "reward", challenge.reward],
-      ["טקסט לפני שדה התשובה", "answerLabel", challenge.answerLabel],
-      ["הודעת הצלחה", "successMessage", challenge.successMessage],
-      ["הודעת שגיאה", "errorMessage", challenge.errorMessage],
+      ["כותרת", "title", challenge.title, "input"],
+      ["שאלה", "question", challenge.question, "textarea"],
+      ["תשובה", "answer", challenge.answer, "input"],
+      ["חלק בקוד הסופי", "reward", challenge.reward, "input"],
+      ["טקסט לפני שדה התשובה", "answerLabel", challenge.answerLabel, "input"],
+      ["הודעת הצלחה", "successMessage", challenge.successMessage, "textarea"],
+      ["הודעת שגיאה", "errorMessage", challenge.errorMessage, "textarea"],
     ];
 
-    challengeFields.forEach(([label, field, value]) => {
+    challengeFields.forEach(([label, field, value, control]) => {
       addSearchResult(results, query, {
         id: `challenge-${challenge.id}-${field}`,
+        kind: "challenge",
+        challengeIndex,
+        field,
         label,
         section: "levels",
         scope: level,
+        control,
         value,
       });
     });
@@ -3764,9 +3791,14 @@ function getAdminConfigSearchResults(config, query) {
     (challenge.answerFields ?? []).forEach((field, fieldIndex) => {
       addSearchResult(results, query, {
         id: `challenge-${challenge.id}-answer-field-${fieldIndex}`,
+        kind: "answerField",
+        challengeIndex,
+        fieldIndex,
+        field: "answer",
         label: field.label ? `שדה תשובה: ${field.label}` : `שדה תשובה ${fieldIndex + 1}`,
         section: "levels",
         scope: level,
+        control: "input",
         value: field.answer,
       });
     });
@@ -3774,23 +3806,78 @@ function getAdminConfigSearchResults(config, query) {
     (challenge.choiceOptions ?? []).forEach((option, optionIndex) => {
       addSearchResult(results, query, {
         id: `challenge-${challenge.id}-choice-${optionIndex}`,
+        kind: "choice",
+        challengeIndex,
+        optionIndex,
+        field: "text",
         label: option.correct ? `אפשרות נכונה ${optionIndex + 1}` : `אפשרות ${optionIndex + 1}`,
         section: "levels",
         scope: level,
+        control: "input",
         value: option.text,
       });
     });
 
     addSearchResult(results, query, {
       id: `challenge-${challenge.id}-path`,
+      kind: "challenge",
+      challengeIndex,
+      field: "path",
       label: "כתובת",
       section: "levels",
       scope: level,
+      control: "input",
       value: challenge.path,
     });
   });
 
   return results.slice(0, 30);
+}
+
+function AdminSearchResultField({
+  result,
+  onUpdateAnswerField,
+  onUpdateChallenge,
+  onUpdateChoiceOption,
+  onUpdateRoomConfig,
+}) {
+  function updateValue(value) {
+    if (result.kind === "room") {
+      onUpdateRoomConfig(result.field, value);
+      return;
+    }
+
+    if (result.kind === "challenge") {
+      onUpdateChallenge(result.challengeIndex, result.field, value);
+      return;
+    }
+
+    if (result.kind === "answerField") {
+      onUpdateAnswerField(result.challengeIndex, result.fieldIndex, result.field, value);
+      return;
+    }
+
+    if (result.kind === "choice") {
+      onUpdateChoiceOption(result.challengeIndex, result.optionIndex, result.field, value);
+    }
+  }
+
+  const Control = result.control === "textarea" ? "textarea" : "input";
+
+  return (
+    <label className="admin-search-edit-card">
+      <span>
+        <strong>{result.scope}</strong>
+        <small>{result.label}</small>
+      </span>
+      <Control
+        className={result.control === "textarea" ? "admin-textarea compact-textarea" : "admin-input"}
+        value={result.value}
+        onChange={(event) => updateValue(event.target.value)}
+        dir="auto"
+      />
+    </label>
+  );
 }
 
 function AdminGameForm({
@@ -3860,30 +3947,26 @@ function AdminGameForm({
         <section className="admin-search-results" aria-label="תוצאות חיפוש">
           <div className="admin-section-heading">
             <strong>{searchResults.length ? `${searchResults.length} תוצאות` : "לא נמצאו תוצאות"}</strong>
-            <span>לחיצה על תוצאה תפתח את הטאב המתאים.</span>
+            <span>מוצגים רק השדות שמכילים את הטקסט שחיפשתם.</span>
           </div>
           {searchResults.length > 0 && (
-            <div className="admin-search-result-list">
+            <div className="admin-search-edit-list">
               {searchResults.map((result) => (
-                <button
-                  className="admin-search-result"
+                <AdminSearchResultField
                   key={result.id}
-                  type="button"
-                  onClick={() => setSection(result.section)}
-                >
-                  <span>
-                    <strong>{result.scope}</strong>
-                    <small>{result.label}</small>
-                  </span>
-                  <em dir="auto">{result.value}</em>
-                </button>
+                  result={result}
+                  onUpdateAnswerField={onUpdateAnswerField}
+                  onUpdateChallenge={onUpdateChallenge}
+                  onUpdateChoiceOption={onUpdateChoiceOption}
+                  onUpdateRoomConfig={onUpdateRoomConfig}
+                />
               ))}
             </div>
           )}
         </section>
       )}
 
-      <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
+      {!normalizedSearchTerm && <div className="admin-subtabs" role="tablist" aria-label="הגדרות משחק">
         <button
           aria-selected={section === "main"}
           className={section === "main" ? "is-active" : ""}
@@ -3920,9 +4003,9 @@ function AdminGameForm({
         >
           מתקדם
         </button>
-      </div>
+      </div>}
 
-      {section === "main" && (
+      {!normalizedSearchTerm && section === "main" && (
         <div className="admin-editor-panel">
           <label>
             שם המשחק
@@ -4011,7 +4094,7 @@ function AdminGameForm({
         </div>
       )}
 
-      {section === "final" && (
+      {!normalizedSearchTerm && section === "final" && (
         <div className="admin-editor-panel">
           <label>
             תשובה לשלב הסופי
@@ -4072,7 +4155,7 @@ function AdminGameForm({
         </div>
       )}
 
-      {section === "advanced" && (
+      {!normalizedSearchTerm && section === "advanced" && (
         <>
           <AdminCollapsibleSection title="ברירות מחדל לשאלות" meta="תווית, ניקוד והודעות fallback" defaultOpen>
             <label>
@@ -4132,7 +4215,7 @@ function AdminGameForm({
         </>
       )}
 
-      {section === "levels" && (
+      {!normalizedSearchTerm && section === "levels" && (
         <AdminCollapsibleSection
           title="שלבים"
           meta={normalizedSearchTerm ? `${filteredChallenges.length}/${config.challenges.length} תוצאות` : `${config.challenges.length} שלבים`}
