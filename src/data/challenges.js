@@ -13,6 +13,8 @@ export const roomConfig = {
   finalInteractionMode: "auto",
   finalOrderPrompt: "סדרו את החלקים לפי הסדר הנכון.",
   finalOrderErrorMessage: "הסדר עדיין לא נכון. נסו שוב.",
+  autoAdvanceEnabled: false,
+  autoAdvanceDelaySeconds: 2,
   passwordProtected: false,
   showEmailLogin: true,
   logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",

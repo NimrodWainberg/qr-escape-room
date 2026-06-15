@@ -1894,18 +1894,36 @@ function ChallengePage({
   const [answerValues, setAnswerValues] = useState([]);
   const [choiceId, setChoiceId] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
+  const [autoAdvanceArmed, setAutoAdvanceArmed] = useState(false);
   const answerFields = challenge.answerFields?.length ? challenge.answerFields.slice(0, 6) : [];
   const isChoiceQuestion = challenge.answerType === "choice";
   const numericOnly = Boolean(challenge.numericOnly);
   const answerLabel = getAnswerLabel(challenge, roomConfig);
   const questionText = getPlayerQuestionText(challenge.question);
+  const autoAdvanceDelaySeconds = Math.min(30, Math.max(0.5, Number(roomConfig.autoAdvanceDelaySeconds) || 2));
+  const autoAdvanceEnabled = Boolean(roomConfig.autoAdvanceEnabled);
 
   useEffect(() => {
     setValue("");
     setAnswerValues([]);
     setChoiceId("");
     setResult(solved ? "success" : "idle");
+    setAutoAdvanceArmed(false);
   }, [challenge.id, solved]);
+
+  useEffect(() => {
+    if (!autoAdvanceEnabled || !autoAdvanceArmed || result !== "success") {
+      return undefined;
+    }
+
+    const nextChallenge = getNextChallenge(challenges, challenge);
+    const targetPath = nextChallenge ? nextChallenge.path : "/";
+    const timeoutId = window.setTimeout(() => {
+      onNavigate(targetPath);
+    }, autoAdvanceDelaySeconds * 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [autoAdvanceArmed, autoAdvanceDelaySeconds, autoAdvanceEnabled, challenge, challenges, onNavigate, result]);
 
   async function submitAnswer(event) {
     event.preventDefault();
@@ -1925,6 +1943,7 @@ function ChallengePage({
 
       if (response.correct) {
         setResult("success");
+        setAutoAdvanceArmed(true);
         onSolve(challenge.id);
         return;
       }
@@ -2022,7 +2041,15 @@ function ChallengePage({
       </form>
 
       <ResultMessage challenge={challenge} result={result} roomConfig={roomConfig} />
-      {result === "success" && <UnlockNotice challenge={challenge} challenges={challenges} onNavigate={onNavigate} />}
+      {result === "success" && (
+        <UnlockNotice
+          autoAdvanceDelaySeconds={autoAdvanceDelaySeconds}
+          autoAdvanceEnabled={autoAdvanceEnabled && autoAdvanceArmed}
+          challenge={challenge}
+          challenges={challenges}
+          onNavigate={onNavigate}
+        />
+      )}
 
       <div className="page-actions">
         <button className="ghost-button" type="button" onClick={() => onNavigate("/")}>
@@ -2088,18 +2115,21 @@ function ResultMessage({ challenge, result, roomConfig }) {
   );
 }
 
-function UnlockNotice({ challenge, challenges, onNavigate }) {
+function UnlockNotice({ autoAdvanceDelaySeconds = 2, autoAdvanceEnabled = false, challenge, challenges, onNavigate }) {
   const nextChallenge = getNextChallenge(challenges, challenge);
   const title = nextChallenge ? `${nextChallenge.title} נפתח!` : "הקוד הסופי נפתח!";
   const actionLabel = nextChallenge ? `מעבר אל ${nextChallenge.title}` : "לפתיחת הפאזל";
   const actionPath = nextChallenge ? nextChallenge.path : "/";
+  const autoText = nextChallenge
+    ? `מעבר אוטומטי בעוד ${autoAdvanceDelaySeconds} שניות.`
+    : `חזרה אוטומטית לפאזל בעוד ${autoAdvanceDelaySeconds} שניות.`;
 
   return (
     <div className="unlock-notice" role="status">
       <AnimatedLock state="opening" />
       <span className="result-copy">
         <strong className="result-title">{title}</strong>
-        <small>המנעול נפתח ואפשר להתקדם לשלב הבא.</small>
+        <small>{autoAdvanceEnabled ? autoText : "המנעול נפתח ואפשר להתקדם לשלב הבא."}</small>
       </span>
       <button className="ghost-button" type="button" onClick={() => onNavigate(actionPath)}>
         {actionLabel}
@@ -3866,6 +3896,7 @@ function getAdminConfigSearchResults(config, query) {
     ["הודעת מסך סיום", "finalSuccessMessage", config.roomConfig.finalSuccessMessage, "final", "textarea"],
     ["כותרת פאזל", "puzzleTitle", config.roomConfig.puzzleTitle, "main", "input"],
     ["טקסט פאזל", "puzzleSubtitle", config.roomConfig.puzzleSubtitle, "main", "textarea"],
+    ["שניות עד מעבר אוטומטי", "autoAdvanceDelaySeconds", config.roomConfig.autoAdvanceDelaySeconds, "advanced", "input"],
     ["תווית תשובה ברירת מחדל", "defaultAnswerLabel", config.roomConfig.defaultAnswerLabel, "advanced", "input"],
     ["הודעת הצלחה ברירת מחדל", "defaultSuccessMessage", config.roomConfig.defaultSuccessMessage, "advanced", "textarea"],
     ["הודעת שגיאה ברירת מחדל", "defaultErrorMessage", config.roomConfig.defaultErrorMessage, "advanced", "textarea"],
@@ -4321,6 +4352,37 @@ function AdminGameForm({
 
       {!normalizedSearchTerm && section === "advanced" && (
         <>
+          <AdminCollapsibleSection title="מעבר בין שלבים" meta="ניווט אוטומטי אחרי תשובה נכונה" defaultOpen>
+            <label className="switch-setting">
+              <span>
+                <strong>מעבר אוטומטי לשלב הבא</strong>
+                <small>אחרי פתרון נכון המשתמש יעבור לבד לשלב הבא אחרי מספר השניות שתבחרו.</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={Boolean(config.roomConfig.autoAdvanceEnabled)}
+                onChange={(event) => onUpdateRoomConfig("autoAdvanceEnabled", event.target.checked)}
+              />
+              <span className="switch-track" aria-hidden="true">
+                <span className="switch-thumb" />
+              </span>
+            </label>
+            {config.roomConfig.autoAdvanceEnabled && (
+              <label>
+                כמה שניות לחכות
+                <input
+                  className="admin-input"
+                  type="number"
+                  min="0.5"
+                  max="30"
+                  step="0.5"
+                  value={config.roomConfig.autoAdvanceDelaySeconds ?? 2}
+                  onChange={(event) => onUpdateRoomConfig("autoAdvanceDelaySeconds", event.target.value)}
+                />
+              </label>
+            )}
+          </AdminCollapsibleSection>
+
           <AdminCollapsibleSection title="ברירות מחדל לשאלות" meta="תווית, ניקוד והודעות fallback" defaultOpen>
             <label>
               טקסט ברירת מחדל לפני שדה תשובה
