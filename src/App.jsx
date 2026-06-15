@@ -1294,7 +1294,7 @@ function PuzzleProgress({ challenges, roomConfig, recentlySolvedId, solved, fina
                 <strong>הפאזל הושלם</strong>
                 <button className="primary-button puzzle-final-button" type="button" onClick={onEnterFinalCode}>
                   <Sparkles aria-hidden="true" />
-                  הזנת הקוד הסופי
+                  {getEditableText(roomConfig.finalEntryButtonLabel, "הזנת הקוד הסופי")}
                 </button>
               </div>
             </>
@@ -3721,8 +3721,9 @@ function AdminGameWizard({ config, onApply }) {
 
 function addSearchResult(results, query, item) {
   const value = String(item.value ?? "");
+  const searchable = [item.label, item.scope, item.value].map((part) => String(part ?? "").toLowerCase()).join(" ");
 
-  if (!query || !value.toLowerCase().includes(query)) {
+  if (!query || !searchable.includes(query)) {
     return;
   }
 
@@ -3740,6 +3741,7 @@ function getAdminConfigSearchResults(config, query) {
     ["טקסט פתיחה", "subtitle", config.roomConfig.subtitle, "main", "textarea"],
     ["תשובה לשלב הסופי", "finalCode", config.roomConfig.finalCode, "final", "input"],
     ["טקסט לפני הקוד הסופי", "finalPrompt", config.roomConfig.finalPrompt, "final", "textarea"],
+    ["טקסט כפתור כניסה לקוד הסופי", "finalEntryButtonLabel", config.roomConfig.finalEntryButtonLabel, "final", "input"],
     ["כותרת מסך סיום", "finalSuccessTitle", config.roomConfig.finalSuccessTitle, "final", "input"],
     ["הודעת מסך סיום", "finalSuccessMessage", config.roomConfig.finalSuccessMessage, "final", "textarea"],
     ["כותרת פאזל", "puzzleTitle", config.roomConfig.puzzleTitle, "main", "input"],
@@ -4115,6 +4117,15 @@ function AdminGameForm({
             <label>
               טקסט לפני הקוד הסופי
               <textarea className="admin-textarea" value={config.roomConfig.finalPrompt} onChange={(event) => onUpdateRoomConfig("finalPrompt", event.target.value)} />
+            </label>
+            <label>
+              טקסט כפתור כניסה לקוד הסופי
+              <input
+                className="admin-input"
+                value={config.roomConfig.finalEntryButtonLabel ?? ""}
+                onChange={(event) => onUpdateRoomConfig("finalEntryButtonLabel", event.target.value)}
+                placeholder="הזנת הקוד הסופי"
+              />
             </label>
             <div className="admin-inline-fields">
               <label>

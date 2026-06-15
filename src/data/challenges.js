@@ -1,7 +1,7 @@
 export const roomConfig = {
   title: "חדר בריחה",
   subtitle: "",
-  finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
+  finalPrompt: "הקוד נוצר מכל החלקים שאספתם בדרך.",
   defaultSuccessMessage: "פתרתם את השלב וקיבלתם חלק מהקוד הסופי:",
   defaultErrorMessage: "הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב.",
   finalErrorMessage: "אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.",
@@ -9,6 +9,7 @@ export const roomConfig = {
   finalSuccessTitle: "חופשה נעימה!",
   finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
   finalSuccessButtonLabel: "חזרה לשלבים",
+  finalEntryButtonLabel: "הזנת הקוד הסופי",
   passwordProtected: false,
   showEmailLogin: true,
   logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",

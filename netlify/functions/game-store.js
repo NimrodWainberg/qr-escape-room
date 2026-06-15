@@ -19,7 +19,7 @@ const defaultGameConfig = {
   roomConfig: {
     title: "חדר בריחה",
     subtitle: "",
-    finalPrompt: "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך.",
+    finalPrompt: "הקוד נוצר מכל החלקים שאספתם בדרך.",
     defaultSuccessMessage: "פתרתם את השלב וקיבלתם חלק מהקוד הסופי:",
     defaultErrorMessage: "הקוד הזה לא פתח את השלב. בדקו את הרמז ונסו שוב.",
     finalErrorMessage: "אפשר לכתוב את הקוד עם רווח או בלי רווח. בדקו את החלקים ונסו שוב.",
@@ -27,6 +27,7 @@ const defaultGameConfig = {
     finalSuccessTitle: "חופשה נעימה!",
     finalSuccessMessage: "כל הכבוד, פתחתם את הקוד הסופי.",
     finalSuccessButtonLabel: "חזרה לשלבים",
+    finalEntryButtonLabel: "הזנת הקוד הסופי",
     finalCode: "חופשה נעימה",
     gamePassword: "",
     showEmailLogin: true,
@@ -290,7 +291,11 @@ export function sanitizeGameConfig(config) {
     roomConfig: {
       title: cleanString(sourceRoomConfig.title, defaultGameConfig.roomConfig.title),
       subtitle: cleanString(sourceRoomConfig.subtitle, defaultGameConfig.roomConfig.subtitle),
-      finalPrompt: cleanString(sourceRoomConfig.finalPrompt, defaultGameConfig.roomConfig.finalPrompt),
+      finalPrompt:
+        cleanString(sourceRoomConfig.finalPrompt, defaultGameConfig.roomConfig.finalPrompt) ===
+        "הקלידו את הקוד שנוצר מכל החלקים שאספתם בדרך."
+          ? defaultGameConfig.roomConfig.finalPrompt
+          : cleanString(sourceRoomConfig.finalPrompt, defaultGameConfig.roomConfig.finalPrompt),
       defaultSuccessMessage: cleanString(
         sourceRoomConfig.defaultSuccessMessage,
         defaultGameConfig.roomConfig.defaultSuccessMessage,
@@ -315,6 +320,10 @@ export function sanitizeGameConfig(config) {
       finalSuccessButtonLabel: cleanString(
         sourceRoomConfig.finalSuccessButtonLabel,
         defaultGameConfig.roomConfig.finalSuccessButtonLabel,
+      ),
+      finalEntryButtonLabel: cleanString(
+        sourceRoomConfig.finalEntryButtonLabel,
+        defaultGameConfig.roomConfig.finalEntryButtonLabel,
       ),
       finalCode: cleanString(sourceRoomConfig.finalCode, defaultGameConfig.roomConfig.finalCode),
       gamePassword: cleanString(sourceRoomConfig.gamePassword, defaultGameConfig.roomConfig.gamePassword),
@@ -359,6 +368,7 @@ export function toPublicConfig(config, globalSettings = defaultGlobalSettings) {
       finalSuccessTitle: safeConfig.roomConfig.finalSuccessTitle,
       finalSuccessMessage: safeConfig.roomConfig.finalSuccessMessage,
       finalSuccessButtonLabel: safeConfig.roomConfig.finalSuccessButtonLabel,
+      finalEntryButtonLabel: safeConfig.roomConfig.finalEntryButtonLabel,
       questionPoints: safeConfig.roomConfig.questionPoints,
       wrongAnswerPenalty: safeConfig.roomConfig.wrongAnswerPenalty,
       finalBonusPoints: safeConfig.roomConfig.finalBonusPoints,
