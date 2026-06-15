@@ -1691,6 +1691,22 @@ h1 {
   padding-left: 3.7rem;
 }
 
+.final-titlebar {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: 1.5rem;
+}
+
+.final-titlebar .panel-header {
+  justify-self: end;
+  width: fit-content;
+  max-width: 100%;
+  margin-block-end: 0;
+  padding-left: 0;
+}
+
 .panel-top-button,
 .final-back-button {
   position: absolute;
@@ -1719,6 +1735,10 @@ h1 {
 .final-back-button svg {
   width: 1.45rem;
   height: 1.45rem;
+}
+
+.final-titlebar .final-back-button {
+  position: static;
 }
 
 .panel-header h1 {

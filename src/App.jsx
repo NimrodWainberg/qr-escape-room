@@ -2342,17 +2342,19 @@ function FinalPage({
 
   return (
     <section className={`play-panel final-panel ${result === "error" ? "shake" : ""}`}>
-      <button className="final-back-button" type="button" onClick={() => onNavigate("/")} aria-label="חזרה לשלבים">
-        <Home aria-hidden="true" />
-      </button>
+      <div className="final-titlebar">
+        <button className="final-back-button" type="button" onClick={() => onNavigate("/")} aria-label="חזרה לשלבים">
+          <Home aria-hidden="true" />
+        </button>
 
-      <div className="panel-header">
-        <span className="round-badge">
-          <Trophy aria-hidden="true" />
-        </span>
-        <div>
-          <p className="eyebrow">השלב האחרון</p>
-          <h1>הקוד הסופי</h1>
+        <div className="panel-header">
+          <span className="round-badge">
+            <Trophy aria-hidden="true" />
+          </span>
+          <div>
+            <p className="eyebrow">השלב האחרון</p>
+            <h1>הקוד הסופי</h1>
+          </div>
         </div>
       </div>
 
