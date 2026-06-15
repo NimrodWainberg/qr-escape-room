@@ -2150,6 +2150,25 @@ function AnimatedLock({ state, compact = false, large = false }) {
   );
 }
 
+function shuffleFinalParts(parts) {
+  if (parts.length <= 2) {
+    return [...parts].reverse();
+  }
+
+  const shuffled = [...parts];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = (index * 7 + 3) % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  if (shuffled.every((part, index) => part.id === parts[index]?.id)) {
+    return [...parts].reverse();
+  }
+
+  return shuffled;
+}
+
 function FinalPage({
   challenges,
   gameId,
@@ -2168,14 +2187,30 @@ function FinalPage({
     () => normalizeFinalCodePart(roomConfig.finalCode) || normalizeFinalCodePart(collectedFinalCode),
     [collectedFinalCode, roomConfig.finalCode],
   );
+  const finalParts = useMemo(
+    () => challenges.filter((challenge) => solved[challenge.id] && challenge.reward).map((challenge) => ({
+      id: challenge.id,
+      text: challenge.reward,
+    })),
+    [challenges, solved],
+  );
+  const shuffledFinalParts = useMemo(() => shuffleFinalParts(finalParts), [finalParts]);
+  const usesOrderMode = roomConfig.finalInteractionMode === "order" && finalParts.length > 1;
   const [value, setValue] = useState("");
   const [typingComplete, setTypingComplete] = useState(false);
+  const [orderSelection, setOrderSelection] = useState([]);
+  const [orderStatus, setOrderStatus] = useState("idle");
   const [result, setResult] = useState("idle");
+  const orderComplete = !usesOrderMode || orderStatus === "success";
 
   useEffect(() => {
     setValue("");
     setTypingComplete(false);
     setResult("idle");
+
+    if (!orderComplete) {
+      return undefined;
+    }
 
     if (!finalCodeValue) {
       setTypingComplete(true);
@@ -2202,12 +2237,54 @@ function FinalPage({
         window.clearInterval(intervalId);
       }
     };
-  }, [finalCodeValue]);
+  }, [finalCodeValue, orderComplete]);
+
+  useEffect(() => {
+    setOrderSelection([]);
+    setOrderStatus("idle");
+  }, [usesOrderMode, finalCodeValue]);
+
+  function selectFinalPart(part) {
+    if (!usesOrderMode || orderStatus === "success" || orderSelection.some((selectedPart) => selectedPart.id === part.id)) {
+      return;
+    }
+
+    const nextSelection = [...orderSelection, part];
+    setOrderSelection(nextSelection);
+
+    if (nextSelection.length !== finalParts.length) {
+      setOrderStatus("idle");
+      return;
+    }
+
+    const selectedCode = normalizeFinalCodePart(nextSelection.map((selectedPart) => selectedPart.text).join(""));
+    const expectedCode = finalCodeValue;
+
+    if (selectedCode === expectedCode) {
+      setOrderStatus("success");
+      return;
+    }
+
+    setOrderStatus("error");
+    window.setTimeout(() => {
+      setOrderSelection([]);
+      setOrderStatus("idle");
+    }, 950);
+  }
+
+  function undoFinalPart() {
+    if (orderStatus === "success") {
+      return;
+    }
+
+    setOrderSelection((current) => current.slice(0, -1));
+    setOrderStatus("idle");
+  }
 
   async function submitFinal(event) {
     event.preventDefault();
 
-    if (!typingComplete || result === "checking") {
+    if (!typingComplete || !orderComplete || result === "checking") {
       return;
     }
 
@@ -2251,13 +2328,54 @@ function FinalPage({
 
       <p className="lead">{roomConfig.finalPrompt}</p>
 
+      {usesOrderMode && (
+        <div className={`final-order-game ${orderStatus === "error" ? "shake" : ""} ${orderStatus === "success" ? "is-success" : ""}`}>
+          <div className="final-order-header">
+            <strong>{getEditableText(roomConfig.finalOrderPrompt, "סדרו את החלקים לפי הסדר הנכון.")}</strong>
+            <button className="ghost-button" type="button" onClick={undoFinalPart} disabled={!orderSelection.length || orderStatus === "success"}>
+              חזרה
+            </button>
+          </div>
+          <div className="final-order-slots" aria-label="הסדר שבחרתם">
+            {finalParts.map((part, index) => (
+              <span className={orderSelection[index] ? "is-filled" : ""} key={`slot-${part.id}`}>
+                {orderSelection[index]?.text ?? index + 1}
+              </span>
+            ))}
+          </div>
+          <div className="final-order-parts" aria-label="חלקי הקוד">
+            {shuffledFinalParts.map((part) => {
+              const selected = orderSelection.some((selectedPart) => selectedPart.id === part.id);
+
+              return (
+                <button
+                  className={selected ? "is-selected" : ""}
+                  key={part.id}
+                  type="button"
+                  onClick={() => selectFinalPart(part)}
+                  disabled={selected || orderStatus === "success"}
+                >
+                  {part.text}
+                </button>
+              );
+            })}
+          </div>
+          {orderStatus === "error" && (
+            <p className="final-order-error" role="alert">
+              {getEditableText(roomConfig.finalOrderErrorMessage, "הסדר עדיין לא נכון. נסו שוב.")}
+            </p>
+          )}
+          {orderStatus === "success" && <p className="final-order-success">מעולה. הקוד נפתח.</p>}
+        </div>
+      )}
+
       <div className="final-code-reveal" aria-live="polite">
         <span className="final-code-glow" aria-hidden="true" />
         <Sparkles aria-hidden="true" />
-        <strong>{typingComplete ? "הקוד הורכב" : "מרכיבים את הקוד"}</strong>
+        <strong>{orderComplete ? (typingComplete ? "הקוד הורכב" : "מרכיבים את הקוד") : "הקוד נעול"}</strong>
         <div className="final-typewriter" dir="rtl">
           <span>{value || " "}</span>
-          {!typingComplete && <i aria-hidden="true" />}
+          {orderComplete && !typingComplete && <i aria-hidden="true" />}
         </div>
       </div>
 
@@ -2273,7 +2391,7 @@ function FinalPage({
           readOnly
           placeholder="הקוד נכתב כאן..."
         />
-        <button className="primary-button" type="submit" disabled={!typingComplete || result === "checking"}>
+        <button className="primary-button" type="submit" disabled={!typingComplete || !orderComplete || result === "checking"}>
           {result === "checking" ? <LoaderCircle aria-hidden="true" className="spin-icon" /> : <Trophy aria-hidden="true" />}
           {result === "checking" ? "פותח..." : typingComplete ? "פתיחה" : "רגע..."}
         </button>
@@ -3742,6 +3860,8 @@ function getAdminConfigSearchResults(config, query) {
     ["תשובה לשלב הסופי", "finalCode", config.roomConfig.finalCode, "final", "input"],
     ["טקסט לפני הקוד הסופי", "finalPrompt", config.roomConfig.finalPrompt, "final", "textarea"],
     ["טקסט כפתור כניסה לקוד הסופי", "finalEntryButtonLabel", config.roomConfig.finalEntryButtonLabel, "final", "input"],
+    ["הוראה לסידור חלקי הקוד", "finalOrderPrompt", config.roomConfig.finalOrderPrompt, "final", "textarea"],
+    ["הודעת טעות בסידור חלקי הקוד", "finalOrderErrorMessage", config.roomConfig.finalOrderErrorMessage, "final", "textarea"],
     ["כותרת מסך סיום", "finalSuccessTitle", config.roomConfig.finalSuccessTitle, "final", "input"],
     ["הודעת מסך סיום", "finalSuccessMessage", config.roomConfig.finalSuccessMessage, "final", "textarea"],
     ["כותרת פאזל", "puzzleTitle", config.roomConfig.puzzleTitle, "main", "input"],
@@ -4127,6 +4247,39 @@ function AdminGameForm({
                 placeholder="הזנת הקוד הסופי"
               />
             </label>
+            <label>
+              מצב פתיחת הקוד הסופי
+              <select
+                className="admin-input"
+                value={config.roomConfig.finalInteractionMode ?? "auto"}
+                onChange={(event) => onUpdateRoomConfig("finalInteractionMode", event.target.value)}
+              >
+                <option value="auto">אוטומטי</option>
+                <option value="order">סידור חלקים</option>
+              </select>
+            </label>
+            {(config.roomConfig.finalInteractionMode ?? "auto") === "order" && (
+              <div className="admin-inline-fields">
+                <label>
+                  הוראה לסידור החלקים
+                  <textarea
+                    className="admin-textarea compact-textarea"
+                    value={config.roomConfig.finalOrderPrompt ?? ""}
+                    onChange={(event) => onUpdateRoomConfig("finalOrderPrompt", event.target.value)}
+                    placeholder="סדרו את החלקים לפי הסדר הנכון."
+                  />
+                </label>
+                <label>
+                  הודעת טעות בסידור
+                  <textarea
+                    className="admin-textarea compact-textarea"
+                    value={config.roomConfig.finalOrderErrorMessage ?? ""}
+                    onChange={(event) => onUpdateRoomConfig("finalOrderErrorMessage", event.target.value)}
+                    placeholder="הסדר עדיין לא נכון. נסו שוב."
+                  />
+                </label>
+              </div>
+            )}
             <div className="admin-inline-fields">
               <label>
                 בונוס לקוד הסופי
