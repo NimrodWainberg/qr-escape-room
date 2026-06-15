@@ -1909,7 +1909,7 @@ function ChallengePage({
     setChoiceId("");
     setResult(solved ? "success" : "idle");
     setAutoAdvanceArmed(false);
-  }, [challenge.id, solved]);
+  }, [challenge.id]);
 
   useEffect(() => {
     if (!autoAdvanceEnabled || !autoAdvanceArmed || result !== "success") {
@@ -1955,8 +1955,12 @@ function ChallengePage({
   }
 
   return (
-    <section className={`play-panel ${result === "error" ? "shake" : ""}`}>
+    <section className={`play-panel has-top-action ${result === "error" ? "shake" : ""}`}>
       {result === "success" && <Confetti />}
+
+      <button className="panel-top-button" type="button" onClick={() => onNavigate("/")} aria-label="חזרה לבית">
+        <Home aria-hidden="true" />
+      </button>
 
       <div className="panel-header">
         <span className="round-badge">{challenge.id}</span>
@@ -2052,10 +2056,6 @@ function ChallengePage({
       )}
 
       <div className="page-actions">
-        <button className="ghost-button" type="button" onClick={() => onNavigate("/")}>
-          <Home aria-hidden="true" />
-          לכל השלבים
-        </button>
         <button className="ghost-button" type="button" onClick={() => onNavigate(finalUnlocked ? "/" : "/final")}>
           <Trophy aria-hidden="true" />
           לקוד הסופי

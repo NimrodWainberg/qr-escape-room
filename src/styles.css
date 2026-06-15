@@ -1686,14 +1686,16 @@ h1 {
   margin-block-end: 1.5rem;
 }
 
+.has-top-action .panel-header,
 .final-panel .panel-header {
   padding-left: 3.7rem;
 }
 
+.panel-top-button,
 .final-back-button {
   position: absolute;
-  inset-block-start: clamp(1rem, 3vw, 1.45rem);
-  left: clamp(1rem, 3vw, 1.45rem);
+  inset-block-start: clamp(1.1rem, 4vw, 2.2rem);
+  left: clamp(1.1rem, 4vw, 2.2rem);
   z-index: 2;
   display: grid;
   place-items: center;
@@ -1707,11 +1709,13 @@ h1 {
   cursor: pointer;
 }
 
+.panel-top-button:hover,
 .final-back-button:hover {
   border-color: color-mix(in srgb, var(--teal) 70%, var(--line));
   transform: translateY(-1px);
 }
 
+.panel-top-button svg,
 .final-back-button svg {
   width: 1.45rem;
   height: 1.45rem;
