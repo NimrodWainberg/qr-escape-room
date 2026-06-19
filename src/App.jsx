@@ -1894,7 +1894,6 @@ function ChallengePage({
   const [choiceId, setChoiceId] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
   const [autoAdvanceArmed, setAutoAdvanceArmed] = useState(false);
-  const [imageExpanded, setImageExpanded] = useState(false);
   const answerFields = challenge.answerFields?.length ? challenge.answerFields.slice(0, 6) : [];
   const isChoiceQuestion = challenge.answerType === "choice";
   const numericOnly = Boolean(challenge.numericOnly);
@@ -1909,30 +1908,7 @@ function ChallengePage({
     setChoiceId("");
     setResult(solved ? "success" : "idle");
     setAutoAdvanceArmed(false);
-    setImageExpanded(false);
   }, [challenge.id]);
-
-  useEffect(() => {
-    if (!imageExpanded) {
-      return undefined;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function closeOnEscape(event) {
-      if (event.key === "Escape") {
-        setImageExpanded(false);
-      }
-    }
-
-    window.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [imageExpanded]);
 
   useEffect(() => {
     if (!autoAdvanceEnabled || !autoAdvanceArmed || result !== "success") {
@@ -1996,16 +1972,10 @@ function ChallengePage({
       <div className="question-box">
         {challenge.questionImageUrl && (
           <figure className="question-image">
-            <button className="question-image-button" type="button" onClick={() => setImageExpanded(true)} aria-label="הגדלת תמונת השאלה">
-              <img src={challenge.questionImageUrl} alt="" />
-            </button>
+            <img src={challenge.questionImageUrl} alt="" />
           </figure>
         )}
-        {questionText ? (
-          <p>{questionText}</p>
-        ) : (
-          <p className="muted">הכניסו את הקוד כדי להמשיך.</p>
-        )}
+        {questionText && <p>{questionText}</p>}
       </div>
 
       <form className="code-form" onSubmit={submitAnswer}>
@@ -2080,23 +2050,6 @@ function ChallengePage({
         />
       )}
 
-      {imageExpanded && challenge.questionImageUrl && (
-        <div
-          className="question-image-viewer"
-          role="button"
-          tabIndex={0}
-          onClick={() => setImageExpanded(false)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setImageExpanded(false);
-            }
-          }}
-          aria-label="סגירת תמונת השאלה"
-        >
-          <img src={challenge.questionImageUrl} alt="" />
-        </div>
-      )}
     </section>
   );
 }
