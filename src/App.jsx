@@ -2347,8 +2347,6 @@ function FinalPage({
         </div>
       </div>
 
-      <p className="lead">{roomConfig.finalPrompt}</p>
-
       {usesOrderMode && (
         <div className={`final-order-game ${orderStatus === "error" ? "shake" : ""} ${orderStatus === "success" ? "is-success" : ""}`}>
           <div className="final-order-header">

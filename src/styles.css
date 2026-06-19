@@ -1692,19 +1692,20 @@ h1 {
 }
 
 .final-titlebar {
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
   margin-block-end: 1.5rem;
+  direction: ltr;
 }
 
 .final-titlebar .panel-header {
-  justify-self: end;
   width: fit-content;
   max-width: 100%;
   margin-block-end: 0;
   padding-left: 0;
+  direction: rtl;
 }
 
 .panel-top-button,
