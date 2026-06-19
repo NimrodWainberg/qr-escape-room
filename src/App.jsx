@@ -1884,7 +1884,6 @@ function ChallengePage({
   roomConfig,
   playerSession,
   solved,
-  finalUnlocked,
   onSolve,
   onNavigate,
   onPlayerUpdate,
@@ -1895,6 +1894,7 @@ function ChallengePage({
   const [choiceId, setChoiceId] = useState("");
   const [result, setResult] = useState(solved ? "success" : "idle");
   const [autoAdvanceArmed, setAutoAdvanceArmed] = useState(false);
+  const [imageExpanded, setImageExpanded] = useState(false);
   const answerFields = challenge.answerFields?.length ? challenge.answerFields.slice(0, 6) : [];
   const isChoiceQuestion = challenge.answerType === "choice";
   const numericOnly = Boolean(challenge.numericOnly);
@@ -1909,7 +1909,30 @@ function ChallengePage({
     setChoiceId("");
     setResult(solved ? "success" : "idle");
     setAutoAdvanceArmed(false);
+    setImageExpanded(false);
   }, [challenge.id]);
+
+  useEffect(() => {
+    if (!imageExpanded) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setImageExpanded(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [imageExpanded]);
 
   useEffect(() => {
     if (!autoAdvanceEnabled || !autoAdvanceArmed || result !== "success") {
@@ -1973,7 +1996,10 @@ function ChallengePage({
       <div className="question-box">
         {challenge.questionImageUrl && (
           <figure className="question-image">
-            <img src={challenge.questionImageUrl} alt="" />
+            <button className="question-image-button" type="button" onClick={() => setImageExpanded(true)} aria-label="הגדלת תמונת השאלה">
+              <img src={challenge.questionImageUrl} alt="" />
+              <span>לחצו להגדלה</span>
+            </button>
           </figure>
         )}
         {questionText ? (
@@ -2055,12 +2081,12 @@ function ChallengePage({
         />
       )}
 
-      <div className="page-actions">
-        <button className="ghost-button" type="button" onClick={() => onNavigate(finalUnlocked ? "/" : "/final")}>
-          <Trophy aria-hidden="true" />
-          לקוד הסופי
+      {imageExpanded && challenge.questionImageUrl && (
+        <button className="question-image-viewer" type="button" onClick={() => setImageExpanded(false)} aria-label="סגירת תמונת השאלה">
+          <img src={challenge.questionImageUrl} alt="" />
+          <span>לחצו לסגירה</span>
         </button>
-      </div>
+      )}
     </section>
   );
 }
