@@ -772,7 +772,7 @@ h1 {
 }
 
 .is-puzzle-mode .jigsaw-board {
-  width: min(100%, 96rem, calc((100vh - 12rem) * var(--jigsaw-ratio)));
+  width: min(calc(100% - 0.5rem), 96rem, calc((100vh - 12rem) * var(--jigsaw-ratio)));
 }
 
 .is-puzzle-mode .puzzle-footer {
@@ -1481,7 +1481,8 @@ h1 {
   grid-template-columns: repeat(var(--jigsaw-columns), minmax(0, 1fr));
   grid-template-rows: repeat(var(--jigsaw-rows), minmax(0, 1fr));
   gap: 0;
-  width: min(100%, 42rem);
+  justify-self: center;
+  width: min(calc(100% - 0.5rem), 42rem);
   aspect-ratio: var(--jigsaw-aspect);
   padding: var(--jigsaw-board-padding);
   border: 0.55rem solid color-mix(in srgb, var(--amber) 68%, #7a3d1a);
@@ -1613,8 +1614,8 @@ h1 {
 
 .jigsaw-piece-number {
   z-index: 4;
-  inset-block-start: 0.75rem;
-  left: 0.75rem;
+  inset-block-start: clamp(0.95rem, 1.4vw, 1.25rem);
+  left: clamp(0.95rem, 1.4vw, 1.25rem);
   right: auto;
   width: 1.75rem;
   background: rgb(255 255 255 / 86%);
@@ -3865,7 +3866,7 @@ h1 {
   }
 
   .is-puzzle-mode .jigsaw-board {
-    width: min(100%, 44rem);
+    width: min(calc(100% - 0.5rem), 44rem);
   }
 }
 
