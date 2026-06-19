@@ -1787,28 +1787,22 @@ h1 {
   object-fit: contain;
 }
 
-.question-image-button span {
-  position: absolute;
-  inset-inline-start: 0.75rem;
-  inset-block-end: 0.75rem;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid rgb(255 255 255 / 64%);
-  border-radius: 999px;
-  background: rgb(32 33 36 / 72%);
-  color: white;
-  font-size: 0.9rem;
-  font-weight: 900;
-  box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
-}
-
 .question-image-viewer {
   position: fixed;
   inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 100;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  padding: clamp(0.75rem, 3vw, 2rem);
+  width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
   border: 0;
   background:
     radial-gradient(circle at 50% 8%, rgb(255 255 255 / 14%), transparent 28rem),
@@ -1818,25 +1812,14 @@ h1 {
 
 .question-image-viewer img {
   display: block;
-  max-width: min(100%, 78rem);
-  max-height: 88vh;
+  width: auto;
+  height: auto;
+  max-width: 96vw;
+  max-height: 92vh;
+  max-height: 92dvh;
   border-radius: 1rem;
   object-fit: contain;
   box-shadow: 0 24px 70px rgb(0 0 0 / 42%);
-}
-
-.question-image-viewer span {
-  position: fixed;
-  left: 50%;
-  inset-block-end: 1rem;
-  translate: -50% 0;
-  padding: 0.5rem 0.85rem;
-  border: 1px solid rgb(255 255 255 / 28%);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 14%);
-  color: white;
-  font-weight: 900;
-  backdrop-filter: blur(10px);
 }
 
 .code-form {

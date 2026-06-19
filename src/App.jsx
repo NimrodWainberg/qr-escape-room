@@ -1998,7 +1998,6 @@ function ChallengePage({
           <figure className="question-image">
             <button className="question-image-button" type="button" onClick={() => setImageExpanded(true)} aria-label="הגדלת תמונת השאלה">
               <img src={challenge.questionImageUrl} alt="" />
-              <span>לחצו להגדלה</span>
             </button>
           </figure>
         )}
@@ -2082,10 +2081,21 @@ function ChallengePage({
       )}
 
       {imageExpanded && challenge.questionImageUrl && (
-        <button className="question-image-viewer" type="button" onClick={() => setImageExpanded(false)} aria-label="סגירת תמונת השאלה">
+        <div
+          className="question-image-viewer"
+          role="button"
+          tabIndex={0}
+          onClick={() => setImageExpanded(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setImageExpanded(false);
+            }
+          }}
+          aria-label="סגירת תמונת השאלה"
+        >
           <img src={challenge.questionImageUrl} alt="" />
-          <span>לחצו לסגירה</span>
-        </button>
+        </div>
       )}
     </section>
   );
