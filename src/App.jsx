@@ -1867,6 +1867,15 @@ function LeaderboardPanel({ leaderboard }) {
 function Modal({ children, title, wide = false, locked = false, onClose }) {
   const close = locked ? undefined : onClose;
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <section
