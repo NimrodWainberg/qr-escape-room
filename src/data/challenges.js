@@ -16,7 +16,7 @@ export const roomConfig = {
   autoAdvanceEnabled: false,
   autoAdvanceDelaySeconds: 2,
   passwordProtected: false,
-  showEmailLogin: true,
+  showEmailLogin: false,
   logoutConfirmMessage: "לצאת מהמשחק? ההתקדמות שנשמרה במכשיר תישאר, אבל תצטרכו להיכנס שוב כדי לשמור ניקוד ודירוג.",
   defaultAnswerLabel: "הכניסו את הקוד",
   questionPoints: 10,

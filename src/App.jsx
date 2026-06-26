@@ -564,6 +564,10 @@ export default function App() {
   }, [gameId, isGameRoute, playerProfile, playerSession]);
 
   useEffect(() => {
+    if (configStatus === "loading") {
+      return;
+    }
+
     if (!isGameRoute && !isLobby) {
       setShowLoginModal(false);
       return;
@@ -572,7 +576,7 @@ export default function App() {
     if (isGameRoute) {
       setShowLoginModal(!playerSession && !playerProfile);
     }
-  }, [gameId, isGameRoute, isLobby, playerProfile, playerSession]);
+  }, [configStatus, gameId, isGameRoute, isLobby, playerProfile, playerSession]);
 
   const activeChallenge = useMemo(
     () => challenges.find((challenge) => challenge.path === path),
@@ -937,7 +941,7 @@ export default function App() {
         )}
       </main>
 
-      {showLoginModal && (
+      {showLoginModal && configStatus !== "loading" && (
         <Modal title="כניסה למשחק" onClose={() => setShowLoginModal(false)}>
           <LoginChoices
             showEmailLogin={roomConfig.showEmailLogin}
