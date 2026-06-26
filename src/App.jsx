@@ -573,10 +573,6 @@ export default function App() {
   }, [gameId, isGameRoute, playerProfile, playerSession]);
 
   useEffect(() => {
-    if (configStatus === "loading") {
-      return;
-    }
-
     if (!isGameRoute && !isLobby) {
       setShowLoginModal(false);
       return;
@@ -950,10 +946,10 @@ export default function App() {
         )}
       </main>
 
-      {showLoginModal && configStatus !== "loading" && (
+      {showLoginModal && (
         <Modal title="כניסה למשחק" onClose={() => setShowLoginModal(false)}>
           <LoginChoices
-            showEmailLogin={roomConfig.showEmailLogin}
+            showEmailLogin={configStatus === "ready" && roomConfig.showEmailLogin}
             onGuestLogin={loginPlayer}
             onRequestOtp={requestEmailOtp}
             onVerifyOtp={verifyEmailOtp}
@@ -1621,7 +1617,9 @@ function LoginChoices({ showEmailLogin = true, onGuestLogin, onRequestOtp, onVer
   const [mode, setMode] = useState(showEmailLogin ? "email" : "guest");
 
   useEffect(() => {
-    setMode(showEmailLogin ? "email" : "guest");
+    if (!showEmailLogin) {
+      setMode("guest");
+    }
   }, [showEmailLogin]);
 
   return (
