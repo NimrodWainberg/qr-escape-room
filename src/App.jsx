@@ -346,9 +346,10 @@ async function deleteJson(url, body, token) {
   return data;
 }
 
-async function getJson(url, token) {
+async function getJson(url, token, options = {}) {
   const response = await fetch(url, {
     headers: token ? { authorization: `Bearer ${token}` } : undefined,
+    signal: options.signal,
   });
 
   if (!response.ok) {
@@ -481,12 +482,16 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 7000);
 
     async function loadPublicConfig() {
       setConfigStatus("loading");
 
       try {
-        const nextConfig = await getJson(withGame(API.publicConfig, gameId));
+        const nextConfig = await getJson(withGame(API.publicConfig, gameId), undefined, {
+          signal: controller.signal,
+        });
 
         if (!cancelled) {
           setGameConfig(nextConfig);
@@ -497,12 +502,16 @@ export default function App() {
           setConfigStatus("fallback");
         }
       }
+
+      window.clearTimeout(timeoutId);
     }
 
     loadPublicConfig();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
     };
   }, [gameId]);
 
